@@ -1,24 +1,24 @@
 <!-- Hero Section -->
 <!-- Hero Section with Slider -->
-<section class="hero">
+<section class="hero" style="height: 40vh;">
     <div class="hero-slider">
         <!-- Slide 1 -->
-        <div class="slide active" style="background-image: url('assets/images/slide1.jpg');">
+        <div class="slide active" style="background-image: url('assets/images/slide1.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
         
         <!-- Slide 2 -->
-        <div class="slide" style="background-image: url('assets/images/slide2.jpg');">
+        <div class="slide" style="background-image: url('assets/images/slide2.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
         
         <!-- Slide 3 -->
-        <div class="slide" style="background-image: url('assets/images/slide3.jpg');">
+        <div class="slide" style="background-image: url('assets/images/slide3.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
     </div>
     
-    <div class="hero-content">
+    <div class="hero-content" >
         <div class="container">
             <div class="hero-text">
                 <h1 class="hero-title">
@@ -67,8 +67,8 @@
                 <div class="service-icon">
                     <i class="fas fa-chart-line"></i>
                 </div>
-                <h3 class="service-title">Marketing Digital</h3>
-                <p class="service-description">
+                <h3 class="service-title2">Marketing Digital</h3>
+                <p class="service-description2">
                     Stratégies digitales performantes pour booster votre présence en ligne
                 </p>
                 <ul class="service-features">
@@ -86,8 +86,8 @@
                 <div class="service-icon">
                     <i class="fas fa-palette"></i>
                 </div>
-                <h3 class="service-title">Conception Graphique</h3>
-                <p class="service-description">
+                <h3 class="service-title2">Conception Graphique</h3>
+                <p class="service-description2">
                     Identité visuelle professionnelle pour marquer les esprits
                 </p>
                 <ul class="service-features">
@@ -105,8 +105,8 @@
                 <div class="service-icon">
                     <i class="fas fa-video"></i>
                 </div>
-                <h3 class="service-title">Conception Multimédia</h3>
-                <p class="service-description">
+                <h3 class="service-title2">Conception Multimédia</h3>
+                <p class="service-description2">
                     Contenus visuels impactants pour captiver votre audience
                 </p>
                 <ul class="service-features">
@@ -124,8 +124,8 @@
                 <div class="service-icon">
                     <i class="fas fa-print"></i>
                 </div>
-                <h3 class="service-title">Imprimerie</h3>
-                <p class="service-description">
+                <h3 class="service-title2">Imprimerie</h3>
+                <p class="service-description2">
                     Impression haute qualité pour tous vos supports marketing
                 </p>
                 <ul class="service-features">
@@ -193,7 +193,7 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="why-image">
+                <div class="why-image" >
                     <img src="assets/images/team-work.jpg" alt="Notre équipe" class="img-fluid">
                 </div>
             </div>

@@ -12,6 +12,7 @@ class Database {
     private $dbname = DB_NAME;
     private $dbh;
     private $error;
+    private $stmt;
 
     public function __construct() {
         $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->dbname . ';charset=utf8';
@@ -179,4 +180,49 @@ function insertDefaultData($pdo) {
 
 // Initialiser la base de données
 initDatabase();
+
+
+
+
+class DatabaseHelper {
+    private $pdo;
+    
+    public function __construct() {
+        try {
+            $this->pdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8",
+                DB_USER,
+                DB_PASS,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                ]
+            );
+        } catch (PDOException $e) {
+            die("Erreur de connexion à la base de données: " . $e->getMessage());
+        }
+    }
+    
+    public function selectOne($query, $params = []) {
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetch();
+    }
+    
+    public function selectAll($query, $params = []) {
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+    
+    public function execute($query, $params = []) {
+        $stmt = $this->pdo->prepare($query);
+        return $stmt->execute($params);
+    }
+    
+    public function lastInsertId() {
+        return $this->pdo->lastInsertId();
+    }
+}
 ?>
+

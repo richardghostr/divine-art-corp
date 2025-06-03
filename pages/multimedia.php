@@ -1,4 +1,4 @@
-<section class="service-hero multimedia-hero">
+<section class="service-hero multimedia-hero " style="background-image: url('assets/images/purple.jpg');background-size: cover; background-position: center;margin-top: -5px;">
     <div class="container">
         <div class="service-hero-content">
             <div class="service-hero-text">
@@ -22,7 +22,7 @@
                 </div>
             </div>
             <div class="service-hero-image">
-                <img src="assets/images/services/multimedia-hero.svg" alt="Conception Multimédia" class="hero-img">
+                <!-- <img src="assets/images/services/multimedia-hero.svg" alt="Conception Multimédia" class="hero-img"> -->
             </div>
         </div>
     </div>
@@ -288,6 +288,7 @@
                         
                         <div class="equipment-item">
                             <i class="fas fa-drone"></i>
+                         
                             <div>
                                 <h4>Drone 4K</h4>
                                 <p>Prises de vues aériennes spectaculaires</p>

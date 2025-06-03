@@ -1,4 +1,5 @@
-<section class="service-hero marketing-hero">
+
+<section class="service-hero marketing-hero " style="background-image: url('assets/images/red.jpg');background-size: cover; background-position: center;margin-top: -5px;">
     <div class="container">
         <div class="service-hero-content">
             <div class="service-hero-text">
@@ -22,7 +23,7 @@
                 </div>
             </div>
             <div class="service-hero-image">
-                <img src="assets/images/services/marketing-hero.svg" alt="Marketing Digital" class="hero-img">
+                <!-- <img src="assets/images/services/marketing-hero.svg" alt="Marketing Digital" class="hero-img"> -->
             </div>
         </div>
     </div>

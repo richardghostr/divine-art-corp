@@ -26,7 +26,7 @@
                 
                 <div class="footer-section">
                     <h4>Contact</h4>
-                    <div class="contact-info">
+                    <div class="contact-info2">
                         <p><i class="fas fa-map-marker-alt"></i> Douala, Cameroun</p>
                         <p><i class="fas fa-phone"></i> +237 6XX XXX XXX</p>
                         <p><i class="fas fa-envelope"></i> contact@divineartcorp.cm</p>
