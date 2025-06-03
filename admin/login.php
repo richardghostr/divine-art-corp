@@ -6,11 +6,6 @@ require_once '../includes/auth.php';
 
 $auth = new Auth();
 
-// Génère un token sécurisé pour "Se souvenir de moi"
-function generateToken($length = 64) {
-    return bin2hex(random_bytes($length / 2));
-}
-
 // Redirection si déjà connecté
 if ($auth->isLoggedIn()) {
     header('Location: index.php');
@@ -30,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validation basique
         if (empty($email) || empty($password)) {
             $error_message = 'Veuillez remplir tous les champs.';
+        } elseif (!validateEmail($email)) {
+            $error_message = 'Format d\'email invalide.';
         } else {
             if ($auth->login($email, $password)) {
                 // Gestion du "Se souvenir de moi"
@@ -46,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error_message = 'Identifiants incorrects.';
                 // Log de tentative de connexion échouée
-                error_log("Tentative de connexion échouée pour: " . $email . " depuis " . $_SERVER['REMOTE_ADDR']);
+                error_log("Tentative de connexion échouée pour: " . $email . " depuis " . ($_SERVER['REMOTE_ADDR'] ?? 'IP inconnue'));
             }
         }
     }
@@ -57,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (empty($email)) {
             $error_message = 'Veuillez saisir votre adresse email.';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        } elseif (!validateEmail($email)) {
             $error_message = 'Adresse email invalide.';
         } else {
             if ($auth->generateResetToken($email)) {
@@ -193,6 +190,7 @@ $page_title = 'Connexion - Divine Art Corporation';
             font-size: 1rem;
             transition: all 0.3s ease;
             background: #f8f9fa;
+            box-sizing: border-box;
         }
         
         .form-control:focus {

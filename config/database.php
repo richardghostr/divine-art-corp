@@ -1,228 +1,315 @@
 <?php
-// Configuration de la base de données
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'divine_art_corp');
+/**
+ * Configuration de la base de données avec MySQLi
+ * Divine Art Corporation
+ */
 
 class Database {
-    private $host = DB_HOST;
-    private $user = DB_USER;
-    private $pass = DB_PASS;
-    private $dbname = DB_NAME;
-    private $dbh;
-    private $error;
-    private $stmt;
+    private $host = 'localhost';
+    private $db_name = 'divine_art_corp';
+    private $username = 'root'; // Changez selon votre configuration
+    private $password = '';     // Changez selon votre configuration
+    private $conn;
+    private static $instance = null;
 
-    public function __construct() {
-        $dsn = 'mysql:host=' . $this->host . ';dbname=' . $this->dbname . ';charset=utf8';
-        $options = array(
-            PDO::ATTR_PERSISTENT => true,
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-        );
-
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new Database();
+        }
+        return self::$instance;
+    }
+    public function getConnection() {
+        $this->conn = null;
+        
         try {
-            $this->dbh = new PDO($dsn, $this->user, $this->pass, $options);
-        } catch(PDOException $e) {
-            $this->error = $e->getMessage();
+            // Création de la connexion MySQLi
+            $this->conn = new mysqli($this->host, $this->username, $this->password, $this->db_name);
+            
+            // Vérification de la connexion
+            if ($this->conn->connect_error) {
+                throw new Exception("Erreur de connexion: " . $this->conn->connect_error);
+            }
+            
+            // Configuration du charset
+            $this->conn->set_charset("utf8mb4");
+            
+        } catch(Exception $exception) {
+            error_log("Erreur de connexion: " . $exception->getMessage());
+            throw new Exception("Erreur de connexion à la base de données");
+        }
+        
+        return $this->conn;
+    }
+    
+    public function closeConnection() {
+        if ($this->conn) {
+            $this->conn->close();
         }
     }
+}
 
-    public function query($query) {
-        $this->stmt = $this->dbh->prepare($query);
+/**
+ * Classe utilitaire pour les opérations de base de données avec MySQLi
+ */
+class DatabaseHelper {
+    private $db;
+    private $conn;
+    
+    public function __construct() {
+        $this->db = new Database();
+        $this->conn = $this->db->getConnection();
     }
-
-    public function bind($param, $value, $type = null) {
-        if (is_null($type)) {
-            switch (true) {
-                case is_int($value):
-                    $type = PDO::PARAM_INT;
-                    break;
-                case is_bool($value):
-                    $type = PDO::PARAM_BOOL;
-                    break;
-                case is_null($value):
-                    $type = PDO::PARAM_NULL;
-                    break;
-                default:
-                    $type = PDO::PARAM_STR;
+    
+    /**
+     * Exécute une requête SELECT et retourne les résultats
+     */
+    public function select($query, $params = []) {
+        try {
+            $stmt = $this->conn->prepare($query);
+            
+            if (!$stmt) {
+                throw new Exception("Erreur de préparation: " . $this->conn->error);
+            }
+            
+            // Liaison des paramètres si ils existent
+            if (!empty($params)) {
+                $types = $this->getParamTypes($params);
+                $stmt->bind_param($types, ...$params);
+            }
+            
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if (!$result) {
+                throw new Exception("Erreur d'exécution: " . $this->conn->error);
+            }
+            
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+            
+            $stmt->close();
+            return $data;
+            
+        } catch(Exception $e) {
+            error_log("Erreur SELECT: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Exécute une requête SELECT et retourne un seul résultat
+     */
+    public function selectOne($query, $params = []) {
+        try {
+            $stmt = $this->conn->prepare($query);
+            
+            if (!$stmt) {
+                throw new Exception("Erreur de préparation: " . $this->conn->error);
+            }
+            
+            // Liaison des paramètres si ils existent
+            if (!empty($params)) {
+                $types = $this->getParamTypes($params);
+                $stmt->bind_param($types, ...$params);
+            }
+            
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if (!$result) {
+                throw new Exception("Erreur d'exécution: " . $this->conn->error);
+            }
+            
+            $data = $result->fetch_assoc();
+            $stmt->close();
+            
+            return $data ?: false;
+            
+        } catch(Exception $e) {
+            error_log("Erreur SELECT ONE: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Exécute une requête INSERT, UPDATE ou DELETE
+     */
+    public function execute($query, $params = []) {
+        try {
+            $stmt = $this->conn->prepare($query);
+            
+            if (!$stmt) {
+                throw new Exception("Erreur de préparation: " . $this->conn->error);
+            }
+            
+            // Liaison des paramètres si ils existent
+            if (!empty($params)) {
+                $types = $this->getParamTypes($params);
+                $stmt->bind_param($types, ...$params);
+            }
+            
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                throw new Exception("Erreur d'exécution: " . $this->conn->error);
+            }
+            
+            $stmt->close();
+            return true;
+            
+        } catch(Exception $e) {
+            error_log("Erreur EXECUTE: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Retourne l'ID du dernier enregistrement inséré
+     */
+    public function lastInsertId() {
+        return $this->conn->insert_id;
+    }
+    
+    /**
+     * Démarre une transaction
+     */
+    public function beginTransaction() {
+        return $this->conn->autocommit(false);
+    }
+    
+    /**
+     * Valide une transaction
+     */
+    public function commit() {
+        $result = $this->conn->commit();
+        $this->conn->autocommit(true);
+        return $result;
+    }
+    
+    /**
+     * Annule une transaction
+     */
+    public function rollback() {
+        $result = $this->conn->rollback();
+        $this->conn->autocommit(true);
+        return $result;
+    }
+    
+    /**
+     * Détermine les types de paramètres pour bind_param
+     */
+    private function getParamTypes($params) {
+        $types = '';
+        foreach ($params as $param) {
+            if (is_int($param)) {
+                $types .= 'i';
+            } elseif (is_float($param)) {
+                $types .= 'd';
+            } else {
+                $types .= 's';
             }
         }
-        $this->stmt->bindValue($param, $value, $type);
+        return $types;
     }
-
-    public function execute() {
-        return $this->stmt->execute();
+    
+    /**
+     * Échappe une chaîne pour éviter les injections SQL
+     */
+    public function escape($string) {
+        return $this->conn->real_escape_string($string);
     }
-
-    public function resultset() {
-        $this->execute();
-        return $this->stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    /**
+     * Retourne le nombre de lignes affectées
+     */
+    public function affectedRows() {
+        return $this->conn->affected_rows;
     }
-
-    public function single() {
-        $this->execute();
-        return $this->stmt->fetch(PDO::FETCH_ASSOC);
+    
+    /**
+     * Ferme la connexion
+     */
+    public function close() {
+        if ($this->conn) {
+            $this->conn->close();
+        }
     }
-
-    public function rowCount() {
-        return $this->stmt->rowCount();
-    }
-
-    public function lastInsertId() {
-        return $this->dbh->lastInsertId();
+    
+    /**
+     * Destructeur pour fermer automatiquement la connexion
+     */
+    public function __destruct() {
+        $this->close();
     }
 }
 
-// Initialisation de la base de données
-function initDatabase() {
+/**
+ * Fonctions utilitaires globales
+ */
+function sanitizeInput($data) {
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+    return $data;
+}
+
+function generateToken($length = 32) {
+    return bin2hex(random_bytes($length));
+}
+
+function logActivity($user_id, $action, $table = null, $record_id = null, $details = null) {
     try {
-        $pdo = new PDO('mysql:host=' . DB_HOST, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $db = new DatabaseHelper();
+        $query = "INSERT INTO logs_activite (user_id, action, table_concernee, id_enregistrement, details, ip_address, user_agent) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?)";
         
-        // Créer la base de données si elle n'existe pas
-        $pdo->exec("CREATE DATABASE IF NOT EXISTS " . DB_NAME . " CHARACTER SET utf8 COLLATE utf8_general_ci");
-        $pdo->exec("USE " . DB_NAME);
-        
-        // Créer les tables
-        $tables = [
-            "CREATE TABLE IF NOT EXISTS contacts (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                nom VARCHAR(100) NOT NULL,
-                email VARCHAR(100) NOT NULL,
-                telephone VARCHAR(20),
-                entreprise VARCHAR(100),
-                message TEXT,
-                date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )",
-            
-            "CREATE TABLE IF NOT EXISTS devis (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                nom VARCHAR(100) NOT NULL,
-                email VARCHAR(100) NOT NULL,
-                telephone VARCHAR(20),
-                entreprise VARCHAR(100),
-                service VARCHAR(50) NOT NULL,
-                sous_service VARCHAR(100),
-                description TEXT,
-                budget VARCHAR(50),
-                delai VARCHAR(50),
-                statut ENUM('nouveau', 'en_cours', 'termine') DEFAULT 'nouveau',
-                date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )",
-            
-            "CREATE TABLE IF NOT EXISTS services (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                nom VARCHAR(100) NOT NULL,
-                description TEXT,
-                icone VARCHAR(50),
-                couleur VARCHAR(20),
-                actif BOOLEAN DEFAULT TRUE
-            )",
-            
-            "CREATE TABLE IF NOT EXISTS sous_services (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                service_id INT,
-                nom VARCHAR(100) NOT NULL,
-                description TEXT,
-                prix_min DECIMAL(10,2),
-                prix_max DECIMAL(10,2),
-                FOREIGN KEY (service_id) REFERENCES services(id)
-            )",
-            
-            "CREATE TABLE IF NOT EXISTS admin_users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                email VARCHAR(100),
-                role ENUM('admin', 'manager') DEFAULT 'admin',
-                date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )"
+        $params = [
+            $user_id,
+            $action,
+            $table,
+            $record_id,
+            $details,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
         ];
         
-        foreach ($tables as $table) {
-            $pdo->exec($table);
-        }
-        
-        // Insérer les données par défaut
-        insertDefaultData($pdo);
-        
-    } catch(PDOException $e) {
-        die("Erreur de base de données: " . $e->getMessage());
+        return $db->execute($query, $params);
+    } catch(Exception $e) {
+        error_log("Erreur log activité: " . $e->getMessage());
+        return false;
     }
 }
 
-function insertDefaultData($pdo) {
-    // Vérifier si les services existent déjà
-    $stmt = $pdo->query("SELECT COUNT(*) FROM services");
-    if ($stmt->fetchColumn() == 0) {
-        $services = [
-            ['Marketing Digital', 'Stratégies digitales performantes pour développer votre présence en ligne', 'fas fa-chart-line', '#e74c3c'],
-            ['Conception Graphique', 'Identité visuelle professionnelle pour votre marque', 'fas fa-palette', '#3498db'],
-            ['Conception Multimédia', 'Contenus visuels impactants pour vos communications', 'fas fa-video', '#9b59b6'],
-            ['Imprimerie', 'Impression haute qualité pour tous vos supports', 'fas fa-print', '#27ae60']
-        ];
-        
-        foreach ($services as $service) {
-            $stmt = $pdo->prepare("INSERT INTO services (nom, description, icone, couleur) VALUES (?, ?, ?, ?)");
-            $stmt->execute($service);
-        }
-    }
-    
-    // Créer un utilisateur admin par défaut
-    $stmt = $pdo->query("SELECT COUNT(*) FROM admin_users");
-    if ($stmt->fetchColumn() == 0) {
-        $password = password_hash('admin123', PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare("INSERT INTO admin_users (username, password, email) VALUES (?, ?, ?)");
-        $stmt->execute(['admin', $password, 'admin@divineartcorp.cm']);
-    }
+/**
+ * Fonction pour formater les montants
+ */
+function formatMontant($montant) {
+    return number_format($montant, 0, ',', ' ') . ' FCFA';
 }
 
-// Initialiser la base de données
-initDatabase();
+/**
+ * Fonction pour valider un email
+ */
+function validateEmail($email) {
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
 
+/**
+ * Fonction pour valider un numéro de téléphone camerounais
+ */
+function validatePhone($phone) {
+    // Pattern pour les numéros camerounais
+    $pattern = '/^(\+237|237)?[6-9][0-9]{8}$/';
+    return preg_match($pattern, $phone);
+}
 
-
-
-class DatabaseHelper {
-    private $pdo;
-    
-    public function __construct() {
-        try {
-            $this->pdo = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8",
-                DB_USER,
-                DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-                ]
-            );
-        } catch (PDOException $e) {
-            die("Erreur de connexion à la base de données: " . $e->getMessage());
-        }
-    }
-    
-    public function selectOne($query, $params = []) {
-        $stmt = $this->pdo->prepare($query);
-        $stmt->execute($params);
-        return $stmt->fetch();
-    }
-    
-    public function selectAll($query, $params = []) {
-        $stmt = $this->pdo->prepare($query);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    }
-    
-    public function execute($query, $params = []) {
-        $stmt = $this->pdo->prepare($query);
-        return $stmt->execute($params);
-    }
-    
-    public function lastInsertId() {
-        return $this->pdo->lastInsertId();
-    }
+/**
+ * Fonction pour générer un mot de passe sécurisé
+ */
+function generatePassword($length = 12) {
+    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    return substr(str_shuffle($chars), 0, $length);
 }
 ?>
-

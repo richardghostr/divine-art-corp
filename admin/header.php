@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 require_once '../config/database.php';
 require_once '../includes/auth.php';
@@ -35,7 +37,7 @@ $notifications = [];
 try {
     // Nouveaux devis
     $new_devis = $db->selectOne("SELECT COUNT(*) as count FROM devis WHERE statut = 'nouveau'");
-    if ($new_devis['count'] > 0) {
+    if ($new_devis && $new_devis['count'] > 0) {
         $notifications[] = [
             'type' => 'devis',
             'count' => $new_devis['count'],
@@ -45,7 +47,7 @@ try {
     
     // Nouveaux contacts
     $new_contacts = $db->selectOne("SELECT COUNT(*) as count FROM contacts WHERE statut = 'nouveau'");
-    if ($new_contacts['count'] > 0) {
+    if ($new_contacts && $new_contacts['count'] > 0) {
         $notifications[] = [
             'type' => 'contacts',
             'count' => $new_contacts['count'],
@@ -55,7 +57,7 @@ try {
     
     // Devis urgents
     $urgent_devis = $db->selectOne("SELECT COUNT(*) as count FROM devis WHERE priorite = 'urgente' AND statut != 'termine'");
-    if ($urgent_devis['count'] > 0) {
+    if ($urgent_devis && $urgent_devis['count'] > 0) {
         $notifications[] = [
             'type' => 'urgent',
             'count' => $urgent_devis['count'],
@@ -74,7 +76,7 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
+    <title><?php echo htmlspecialchars($page_title); ?></title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -162,7 +164,7 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                                         <i class="fas fa-<?php echo $notification['type'] === 'devis' ? 'file-invoice' : ($notification['type'] === 'contacts' ? 'envelope' : 'exclamation-triangle'); ?>"></i>
                                     </div>
                                     <div class="notification-content">
-                                        <p><?php echo $notification['message']; ?></p>
+                                        <p><?php echo htmlspecialchars($notification['message']); ?></p>
                                         <span class="notification-time">Maintenant</span>
                                     </div>
                                 </div>

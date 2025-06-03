@@ -5,15 +5,21 @@ require_once 'sidebar.php';
 // Récupération des statistiques du dashboard
 try {
     // Statistiques principales
-    $stats = [
-        'projets_actifs' => $db->selectOne("SELECT COUNT(*) as count FROM devis WHERE statut = 'en_cours'")['count'],
-        'projets_termines' => $db->selectOne("SELECT COUNT(*) as count FROM devis WHERE statut = 'termine'")['count'],
-        'devis_attente' => $db->selectOne("SELECT COUNT(*) as count FROM devis WHERE statut = 'nouveau'")['count'],
-        'chiffre_affaires' => $db->selectOne("SELECT COALESCE(SUM(montant_final), 0) as total FROM devis WHERE statut = 'termine' AND YEAR(date_creation) = YEAR(CURDATE())")['total']
+    $stats_queries = [
+        'projets_actifs' => "SELECT COUNT(*) as count FROM devis WHERE statut = 'en_cours'",
+        'projets_termines' => "SELECT COUNT(*) as count FROM devis WHERE statut = 'termine'",
+        'devis_attente' => "SELECT COUNT(*) as count FROM devis WHERE statut = 'nouveau'",
+        'chiffre_affaires' => "SELECT COALESCE(SUM(montant_final), 0) as total FROM devis WHERE statut = 'termine' AND YEAR(date_creation) = YEAR(CURDATE())"
     ];
     
+    $stats = [];
+    foreach ($stats_queries as $key => $query) {
+        $result = $db->selectOne($query);
+        $stats[$key] = $result ? ($result['count'] ?? $result['total']) : 0;
+    }
+    
     // Projets en cours
-    $projets_en_cours = $db->selectAll("
+    $projets_en_cours = $db->select("
         SELECT d.*, s.nom as service_nom 
         FROM devis d 
         LEFT JOIN services s ON s.slug = d.service 
@@ -23,8 +29,8 @@ try {
     ");
     
     // Activité récente
-    $activite_recente = $db->selectAll("
-        SELECT 
+    $activite_recente = $db->select("
+        (SELECT 
             'devis' as type,
             CONCAT('Nouveau devis de ', nom) as titre,
             CONCAT('Devis ', service) as description,
@@ -32,10 +38,12 @@ try {
             id
         FROM devis 
         WHERE date_creation >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY date_creation DESC
+        LIMIT 3)
         
         UNION ALL
         
-        SELECT 
+        (SELECT 
             'contact' as type,
             CONCAT('Nouveau contact de ', nom) as titre,
             CONCAT('Sujet: ', COALESCE(sujet, 'Non spécifié')) as description,
@@ -43,14 +51,16 @@ try {
             id
         FROM contacts 
         WHERE date_creation >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY date_creation DESC
+        LIMIT 2)
         
         ORDER BY date_creation DESC 
         LIMIT 5
     ");
     
     // Clients récents
-    $clients_recents = $db->selectAll("
-        SELECT DISTINCT 
+    $clients_recents = $db->select("
+        SELECT 
             nom,
             email,
             entreprise,
@@ -63,7 +73,7 @@ try {
     ");
     
     // Prochaines échéances
-    $echeances = $db->selectAll("
+    $echeances = $db->select("
         SELECT 
             numero_devis,
             nom,
@@ -86,11 +96,6 @@ try {
     $activite_recente = [];
     $clients_recents = [];
     $echeances = [];
-}
-
-// Fonction pour formater les montants
-function formatMontant($montant) {
-    return number_format($montant, 0, ',', ' ') . ' FCFA';
 }
 
 // Fonction pour calculer le pourcentage de progression
@@ -406,10 +411,12 @@ function calculerProgression($date_debut, $date_fin_prevue) {
                         <?php
                         // Récupération des clients existants
                         try {
-                            $clients = $db->selectAll("SELECT DISTINCT nom, email, entreprise FROM devis ORDER BY nom");
-                            foreach ($clients as $client) {
-                                $display_name = $client['entreprise'] ?: $client['nom'];
-                                echo '<option value="' . htmlspecialchars($client['email']) . '">' . htmlspecialchars($display_name) . '</option>';
+                            $clients = $db->select("SELECT DISTINCT nom, email, entreprise FROM devis ORDER BY nom");
+                            if ($clients) {
+                                foreach ($clients as $client) {
+                                    $display_name = $client['entreprise'] ?: $client['nom'];
+                                    echo '<option value="' . htmlspecialchars($client['email']) . '">' . htmlspecialchars($display_name) . '</option>';
+                                }
                             }
                         } catch (Exception $e) {
                             echo '<option value="">Erreur de chargement</option>';
@@ -494,11 +501,14 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // Recherche globale
-document.getElementById('globalSearch').addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    // Implémentation de la recherche en temps réel
-    console.log('Recherche:', query);
-});
+const globalSearchInput = document.getElementById('globalSearch');
+if (globalSearchInput) {
+    globalSearchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        // Implémentation de la recherche en temps réel
+        console.log('Recherche:', query);
+    });
+}
 
 // Actualisation automatique des notifications
 setInterval(function() {

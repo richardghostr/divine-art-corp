@@ -1,933 +1,423 @@
-<?php include 'header.php'; ?>
+<?php
+require_once '../config/database.php';
+require_once '../includes/auth.php';
+require_once '../includes/functions.php';
 
-<?php include 'sidebar.php'; ?>
+check_admin_auth();
+// Vérifie si l'administrateur est authentifié, sinon redirige vers la page de connexion
+function check_admin_auth() {
+    if (!isset($_SESSION['admin_id'])) {
+        header('Location: login.php');
+        exit();
+    }
+}
+$db = Database::getInstance();
+$conn = $db->getConnection();
 
-<!-- Contenu Principal -->
+// Traitement des actions POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $contact_id = (int)($_POST['contact_id'] ?? 0);
+    
+    switch ($action) {
+        case 'mark_read':
+            $stmt = $conn->prepare("UPDATE contacts SET statut = 'lu', date_modification = NOW() WHERE id = ?");
+            $stmt->bind_param("i", $contact_id);
+            
+            if ($stmt->execute()) {
+                log_activity($_SESSION['admin_id'], 'contact_read', 'contacts', $contact_id);
+                $_SESSION['success_message'] = "Message marqué comme lu.";
+            }
+            break;
+            
+        case 'mark_replied':
+            $stmt = $conn->prepare("UPDATE contacts SET statut = 'repondu', date_modification = NOW() WHERE id = ?");
+            $stmt->bind_param("i", $contact_id);
+            
+            if ($stmt->execute()) {
+                log_activity($_SESSION['admin_id'], 'contact_replied', 'contacts', $contact_id);
+                $_SESSION['success_message'] = "Message marqué comme répondu.";
+            }
+            break;
+            
+        case 'add_note':
+            $note = sanitize_string($_POST['note']);
+            $stmt = $conn->prepare("UPDATE contacts SET notes_admin = ?, date_modification = NOW() WHERE id = ?");
+            $stmt->bind_param("si", $note, $contact_id);
+            
+            if ($stmt->execute()) {
+                log_activity($_SESSION['admin_id'], 'contact_note_added', 'contacts', $contact_id);
+                $_SESSION['success_message'] = "Note ajoutée avec succès.";
+            }
+            break;
+            
+        case 'delete':
+            $stmt = $conn->prepare("DELETE FROM contacts WHERE id = ?");
+            $stmt->bind_param("i", $contact_id);
+            
+            if ($stmt->execute()) {
+                log_activity($_SESSION['admin_id'], 'contact_deleted', 'contacts', $contact_id);
+                $_SESSION['success_message'] = "Message supprimé avec succès.";
+            }
+            break;
+    }
+    
+    redirect($_SERVER['PHP_SELF']);
+}
+
+// Filtres et pagination
+$status_filter = $_GET['status'] ?? 'all';
+$search_query = $_GET['search'] ?? '';
+$page = (int)($_GET['page'] ?? 1);
+$per_page = 15;
+$offset = ($page - 1) * $per_page;
+
+// Construction de la requête WHERE
+$where_conditions = [];
+$params = [];
+$param_types = '';
+
+if ($status_filter !== 'all') {
+    $where_conditions[] = "statut = ?";
+    $params[] = $status_filter;
+    $param_types .= 's';
+}
+
+if (!empty($search_query)) {
+    $where_conditions[] = "(nom LIKE ? OR email LIKE ? OR sujet LIKE ? OR message LIKE ?)";
+    $search_param = "%$search_query%";
+    $params = array_merge($params, [$search_param, $search_param, $search_param, $search_param]);
+    $param_types .= 'ssss';
+}
+
+$where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+
+// Statistiques
+$stats_query = "
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END) as unread,
+        SUM(CASE WHEN statut = 'lu' THEN 1 ELSE 0 END) as read,
+        SUM(CASE WHEN statut = 'repondu' THEN 1 ELSE 0 END) as replied
+    FROM contacts
+";
+
+$stats_result = $conn->query($stats_query);
+$stats = $stats_result->fetch_assoc();
+
+// Récupération des contacts
+$contacts_query = "
+    SELECT * FROM contacts 
+    $where_clause 
+    ORDER BY date_creation DESC 
+    LIMIT $per_page OFFSET $offset
+";
+
+if (!empty($params)) {
+    $stmt = $conn->prepare($contacts_query);
+    $stmt->bind_param($param_types, ...$params);
+    $stmt->execute();
+    $contacts_result = $stmt->get_result();
+} else {
+    $contacts_result = $conn->query($contacts_query);
+}
+
+$contacts_list = [];
+while ($row = $contacts_result->fetch_assoc()) {
+    $contacts_list[] = $row;
+}
+
+// Comptage total
+$count_query = "SELECT COUNT(*) as total FROM contacts $where_clause";
+if (!empty($params)) {
+    $stmt = $conn->prepare($count_query);
+    $stmt->bind_param($param_types, ...$params);
+    $stmt->execute();
+    $count_result = $stmt->get_result();
+} else {
+    $count_result = $conn->query($count_query);
+}
+
+$total_contacts = $count_result->fetch_assoc()['total'];
+$total_pages = ceil($total_contacts / $per_page);
+
+include 'header.php';
+include 'sidebar.php';
+?>
+
 <main class="admin-main">
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
+        </div>
+    <?php endif; ?>
+
     <div class="section-header">
         <div class="section-title">
             <h2>Gestion des Contacts</h2>
-            <p>Base de données clients et prospects</p>
+            <p>Messages et demandes de contact</p>
         </div>
         <div class="section-actions">
             <button class="btn btn-outline" onclick="exportContacts()">
                 <i class="fas fa-download"></i>
                 Exporter
             </button>
-            <button class="btn btn-outline" onclick="importContacts()">
-                <i class="fas fa-upload"></i>
-                Importer
-            </button>
-            <button class="btn btn-primary" onclick="openNewContactModal()">
-                <i class="fas fa-plus"></i>
-                Nouveau Contact
+            <button class="btn btn-primary" onclick="markAllRead()">
+                <i class="fas fa-check-double"></i>
+                Tout marquer lu
             </button>
         </div>
     </div>
 
-    <!-- Statistiques Contacts -->
-    <div class="contacts-stats">
+    <!-- Statistiques -->
+    <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-icon">
-                <i class="fas fa-users"></i>
+            <div class="stat-icon total">
+                <i class="fas fa-envelope"></i>
             </div>
             <div class="stat-content">
-                <div class="stat-label">Total Contacts</div>
-                <div class="stat-value">247</div>
-            </div>
-            <div class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i>
-                +12%
+                <div class="stat-number"><?php echo $stats['total']; ?></div>
+                <div class="stat-label">Total messages</div>
             </div>
         </div>
-        
         <div class="stat-card">
-            <div class="stat-icon">
-                <i class="fas fa-building"></i>
+            <div class="stat-icon unread">
+                <i class="fas fa-envelope-open"></i>
             </div>
             <div class="stat-content">
-                <div class="stat-label">Entreprises</div>
-                <div class="stat-value">89</div>
-            </div>
-            <div class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i>
-                +8%
+                <div class="stat-number"><?php echo $stats['unread']; ?></div>
+                <div class="stat-label">Non lus</div>
             </div>
         </div>
-        
         <div class="stat-card">
-            <div class="stat-icon">
-                <i class="fas fa-user"></i>
+            <div class="stat-icon read">
+                <i class="fas fa-eye"></i>
             </div>
             <div class="stat-content">
-                <div class="stat-label">Particuliers</div>
-                <div class="stat-value">158</div>
-            </div>
-            <div class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i>
-                +15%
+                <div class="stat-number"><?php echo $stats['read']; ?></div>
+                <div class="stat-label">Lus</div>
             </div>
         </div>
-        
         <div class="stat-card">
-            <div class="stat-icon">
-                <i class="fas fa-star"></i>
+            <div class="stat-icon replied">
+                <i class="fas fa-reply"></i>
             </div>
             <div class="stat-content">
-                <div class="stat-label">Clients VIP</div>
-                <div class="stat-value">23</div>
-            </div>
-            <div class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i>
-                +5%
+                <div class="stat-number"><?php echo $stats['replied']; ?></div>
+                <div class="stat-label">Répondus</div>
             </div>
         </div>
     </div>
 
-    <!-- Filtres et Recherche -->
+    <!-- Filtres -->
     <div class="filters-bar">
         <div class="filter-tabs">
-            <button class="filter-tab active" data-type="all">Tous (247)</button>
-            <button class="filter-tab" data-type="entreprise">Entreprises (89)</button>
-            <button class="filter-tab" data-type="particulier">Particuliers (158)</button>
-            <button class="filter-tab" data-type="prospect">Prospects (45)</button>
+            <a href="?status=all&search=<?php echo urlencode($search_query); ?>" 
+               class="filter-tab <?php echo $status_filter === 'all' ? 'active' : ''; ?>">
+                Tous (<?php echo $stats['total']; ?>)
+            </a>
+            <a href="?status=nouveau&search=<?php echo urlencode($search_query); ?>" 
+               class="filter-tab <?php echo $status_filter === 'nouveau' ? 'active' : ''; ?>">
+                Non lus (<?php echo $stats['unread']; ?>)
+            </a>
+            <a href="?status=lu&search=<?php echo urlencode($search_query); ?>" 
+               class="filter-tab <?php echo $status_filter === 'lu' ? 'active' : ''; ?>">
+                Lus (<?php echo $stats['read']; ?>)
+            </a>
+            <a href="?status=repondu&search=<?php echo urlencode($search_query); ?>" 
+               class="filter-tab <?php echo $status_filter === 'repondu' ? 'active' : ''; ?>">
+                Répondus (<?php echo $stats['replied']; ?>)
+            </a>
         </div>
         <div class="filter-actions">
-            <select class="filter-select" id="statusFilter">
-                <option value="all">Tous les statuts</option>
-                <option value="actif">Actif</option>
-                <option value="prospect">Prospect</option>
-                <option value="inactif">Inactif</option>
-                <option value="vip">VIP</option>
-            </select>
-            <select class="filter-select" id="serviceFilter">
-                <option value="all">Tous les services</option>
-                <option value="marketing">Marketing</option>
-                <option value="graphique">Design Graphique</option>
-                <option value="multimedia">Multimédia</option>
-                <option value="imprimerie">Imprimerie</option>
-            </select>
-            <input type="text" placeholder="Rechercher un contact..." class="filter-search" id="contactSearch">
+            <form method="GET" class="filter-form">
+                <input type="hidden" name="status" value="<?php echo $status_filter; ?>">
+                <input type="text" 
+                       name="search" 
+                       placeholder="Rechercher..." 
+                       class="filter-search" 
+                       value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit" class="btn btn-outline btn-sm">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
         </div>
     </div>
 
-    <!-- Table des Contacts -->
-    <div class="table-container">
-        <table class="data-table" id="contactsTable">
-            <thead>
-                <tr>
-                    <th>
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th>Contact</th>
-                    <th>Type</th>
-                    <th>Email / Téléphone</th>
-                    <th>Projets</th>
-                    <th>Chiffre d'Affaires</th>
-                    <th>Dernière Activité</th>
-                    <th>Statut</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr data-type="entreprise" data-status="actif">
-                    <td>
-                        <input type="checkbox" class="contact-checkbox" value="1">
-                    </td>
-                    <td>
-                        <div class="contact-cell">
-                            <div class="contact-avatar">
-                                <img src="/placeholder.svg?height=40&width=40" alt="TechStart">
-                            </div>
-                            <div class="contact-info">
-                                <div class="contact-name">TechStart SARL</div>
-                                <div class="contact-person">Jean Dupont - Directeur</div>
-                                <div class="contact-location">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    Douala, Cameroun
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="type-badge entreprise">
-                            <i class="fas fa-building"></i>
-                            Entreprise
-                        </span>
-                    </td>
-                    <td>
-                        <div class="contact-details">
-                            <div class="contact-email">
-                                <i class="fas fa-envelope"></i>
-                                contact@techstart.cm
-                            </div>
-                            <div class="contact-phone">
-                                <i class="fas fa-phone"></i>
-                                +237 6XX XXX XXX
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="projects-info">
-                            <div class="projects-count">3 projets</div>
-                            <div class="projects-services">Marketing, Design</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="revenue-info">
-                            <div class="revenue-amount">5,200€</div>
-                            <div class="revenue-trend positive">+15%</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="activity-info">
-                            <div class="activity-date">Il y a 2 jours</div>
-                            <div class="activity-action">Devis envoyé</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="status-badge actif">Actif</span>
-                    </td>
-                    <td>
-                        <div class="table-actions">
-                            <button class="action-btn" onclick="viewContact(1)" title="Voir">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn" onclick="editContact(1)" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-btn" onclick="emailContact(1)" title="Email">
-                                <i class="fas fa-envelope"></i>
-                            </button>
-                            <button class="action-btn" onclick="callContact(1)" title="Appeler">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button class="action-btn danger" onclick="deleteContact(1)" title="Supprimer">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr data-type="entreprise" data-status="prospect">
-                    <td>
-                        <input type="checkbox" class="contact-checkbox" value="2">
-                    </td>
-                    <td>
-                        <div class="contact-cell">
-                            <div class="contact-avatar">
-                                <img src="/placeholder.svg?height=40&width=40" alt="Restaurant">
-                            </div>
-                            <div class="contact-info">
-                                <div class="contact-name">Restaurant Saveurs</div>
-                                <div class="contact-person">Marie Kouam - Propriétaire</div>
-                                <div class="contact-location">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    Yaoundé, Cameroun
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="type-badge entreprise">
-                            <i class="fas fa-utensils"></i>
-                            Restaurant
-                        </span>
-                    </td>
-                    <td>
-                        <div class="contact-details">
-                            <div class="contact-email">
-                                <i class="fas fa-envelope"></i>
-                                info@saveurs.cm
-                            </div>
-                            <div class="contact-phone">
-                                <i class="fas fa-phone"></i>
-                                +237 6XX XXX XXX
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="projects-info">
-                            <div class="projects-count">1 projet</div>
-                            <div class="projects-services">Site Web</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="revenue-info">
-                            <div class="revenue-amount">3,100€</div>
-                            <div class="revenue-trend positive">Nouveau</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="activity-info">
-                            <div class="activity-date">Il y a 1 semaine</div>
-                            <div class="activity-action">Premier contact</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="status-badge prospect">Prospect</span>
-                    </td>
-                    <td>
-                        <div class="table-actions">
-                            <button class="action-btn" onclick="viewContact(2)" title="Voir">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn" onclick="editContact(2)" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-btn" onclick="emailContact(2)" title="Email">
-                                <i class="fas fa-envelope"></i>
-                            </button>
-                            <button class="action-btn" onclick="callContact(2)" title="Appeler">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button class="action-btn danger" onclick="deleteContact(2)" title="Supprimer">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr data-type="particulier" data-status="vip">
-                    <td>
-                        <input type="checkbox" class="contact-checkbox" value="3">
-                    </td>
-                    <td>
-                        <div class="contact-cell">
-                            <div class="contact-avatar">
-                                <img src="/placeholder.svg?height=40&width=40" alt="Client">
-                            </div>
-                            <div class="contact-&width=40" alt="Client">
-                            </div>
-                            <div class="contact-info">
-                                <div class="contact-name">Dr. Paul Mbarga</div>
-                                <div class="contact-person">Médecin - Clinique Privée</div>
-                                <div class="contact-location">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    Douala, Cameroun
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="type-badge particulier">
-                            <i class="fas fa-user-md"></i>
-                            Particulier
-                        </span>
-                    </td>
-                    <td>
-                        <div class="contact-details">
-                            <div class="contact-email">
-                                <i class="fas fa-envelope"></i>
-                                dr.mbarga@email.cm
-                            </div>
-                            <div class="contact-phone">
-                                <i class="fas fa-phone"></i>
-                                +237 6XX XXX XXX
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="projects-info">
-                            <div class="projects-count">5 projets</div>
-                            <div class="projects-services">Tous services</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="revenue-info">
-                            <div class="revenue-amount">12,800€</div>
-                            <div class="revenue-trend positive">+25%</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="activity-info">
-                            <div class="activity-date">Hier</div>
-                            <div class="activity-action">Projet livré</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="status-badge vip">VIP</span>
-                    </td>
-                    <td>
-                        <div class="table-actions">
-                            <button class="action-btn" onclick="viewContact(3)" title="Voir">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn" onclick="editContact(3)" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-btn" onclick="emailContact(3)" title="Email">
-                                <i class="fas fa-envelope"></i>
-                            </button>
-                            <button class="action-btn" onclick="callContact(3)" title="Appeler">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button class="action-btn" onclick="createProject(3)" title="Nouveau Projet">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr data-type="entreprise" data-status="inactif">
-                    <td>
-                        <input type="checkbox" class="contact-checkbox" value="4">
-                    </td>
-                    <td>
-                        <div class="contact-cell">
-                            <div class="contact-avatar">
-                                <img src="/placeholder.svg?height=40&width=40" alt="EcoTech">
-                            </div>
-                            <div class="contact-info">
-                                <div class="contact-name">EcoTech Solutions</div>
-                                <div class="contact-person">Samuel Nkomo - CEO</div>
-                                <div class="contact-location">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    Bafoussam, Cameroun
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="type-badge entreprise">
-                            <i class="fas fa-leaf"></i>
-                            Startup
-                        </span>
-                    </td>
-                    <td>
-                        <div class="contact-details">
-                            <div class="contact-email">
-                                <i class="fas fa-envelope"></i>
-                                contact@ecotech.cm
-                            </div>
-                            <div class="contact-phone">
-                                <i class="fas fa-phone"></i>
-                                +237 6XX XXX XXX
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="projects-info">
-                            <div class="projects-count">2 projets</div>
-                            <div class="projects-services">Multimédia</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="revenue-info">
-                            <div class="revenue-amount">4,500€</div>
-                            <div class="revenue-trend neutral">Stable</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="activity-info">
-                            <div class="activity-date">Il y a 3 mois</div>
-                            <div class="activity-action">Projet terminé</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="status-badge inactif">Inactif</span>
-                    </td>
-                    <td>
-                        <div class="table-actions">
-                            <button class="action-btn" onclick="viewContact(4)" title="Voir">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn" onclick="editContact(4)" title="Modifier">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-btn" onclick="reactivateContact(4)" title="Réactiver">
-                                <i class="fas fa-redo"></i>
-                            </button>
-                            <button class="action-btn danger" onclick="deleteContact(4)" title="Supprimer">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Actions en lot -->
-    <div class="bulk-actions" id="bulkActions" style="display: none;">
-        <div class="bulk-actions-content">
-            <span class="selected-count">0 contact(s) sélectionné(s)</span>
-            <div class="bulk-buttons">
-                <button class="btn btn-outline btn-sm" onclick="bulkEmail()">
-                    <i class="fas fa-envelope"></i>
-                    Envoyer Email
-                </button>
-                <button class="btn btn-outline btn-sm" onclick="bulkExport()">
-                    <i class="fas fa-download"></i>
-                    Exporter
-                </button>
-                <button class="btn btn-outline btn-sm" onclick="bulkTag()">
-                    <i class="fas fa-tag"></i>
-                    Ajouter Tag
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="bulkDelete()">
-                    <i class="fas fa-trash"></i>
-                    Supprimer
-                </button>
+    <!-- Liste des contacts -->
+    <div class="contacts-list">
+        <?php if (empty($contacts_list)): ?>
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h3>Aucun message trouvé</h3>
+                <p>Aucun message ne correspond à vos critères.</p>
             </div>
-        </div>
+        <?php else: ?>
+            <?php foreach ($contacts_list as $contact): ?>
+                <div class="contact-card <?php echo $contact['statut']; ?>">
+                    <div class="contact-header">
+                        <div class="contact-info">
+                            <h3><?php echo htmlspecialchars($contact['nom']); ?></h3>
+                            <span class="contact-email"><?php echo htmlspecialchars($contact['email']); ?></span>
+                        </div>
+                        <div class="contact-meta">
+                            <span class="status-badge <?php echo $contact['statut']; ?>">
+                                <?php echo ucfirst($contact['statut']); ?>
+                            </span>
+                            <span class="contact-date"><?php echo time_ago($contact['date_creation']); ?></span>
+                        </div>
+                    </div>
+                    <div class="contact-content">
+                        <h4><?php echo htmlspecialchars($contact['sujet']); ?></h4>
+                        <p><?php echo nl2br(htmlspecialchars(truncate_text($contact['message'], 200))); ?></p>
+                        <?php if ($contact['notes_admin']): ?>
+                            <div class="admin-note">
+                                <i class="fas fa-sticky-note"></i>
+                                <span><?php echo htmlspecialchars($contact['notes_admin']); ?></span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="contact-actions">
+                        <button class="btn btn-sm btn-outline" onclick="viewContact(<?php echo $contact['id']; ?>)">
+                            <i class="fas fa-eye"></i> Voir
+                        </button>
+                        <a href="mailto:<?php echo $contact['email']; ?>" class="btn btn-sm btn-primary">
+                            <i class="fas fa-reply"></i> Répondre
+                        </a>
+                        <?php if ($contact['statut'] === 'nouveau'): ?>
+                            <button class="btn btn-sm btn-success" onclick="markRead(<?php echo $contact['id']; ?>)">
+                                <i class="fas fa-check"></i> Marquer lu
+                            </button>
+                        <?php endif; ?>
+                        <?php if ($contact['statut'] === 'lu'): ?>
+                            <button class="btn btn-sm btn-info" onclick="markReplied(<?php echo $contact['id']; ?>)">
+                                <i class="fas fa-reply"></i> Marquer répondu
+                            </button>
+                        <?php endif; ?>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline dropdown-toggle">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" onclick="addNote(<?php echo $contact['id']; ?>)">
+                                    <i class="fas fa-sticky-note"></i> Ajouter note
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item text-danger" onclick="deleteContact(<?php echo $contact['id']; ?>)">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 
     <!-- Pagination -->
-    <div class="pagination-container">
-        <div class="pagination-info">
-            Affichage de 1 à 4 sur 247 contacts
+    <?php if ($total_pages > 1): ?>
+        <div class="pagination-container">
+            <?php
+            $base_url = "?status=$status_filter&search=" . urlencode($search_query);
+            echo generate_pagination($page, $total_pages, $base_url);
+            ?>
         </div>
-        <div class="pagination">
-            <button class="pagination-btn" disabled>
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="pagination-btn active">1</button>
-            <button class="pagination-btn">2</button>
-            <button class="pagination-btn">3</button>
-            <button class="pagination-btn">...</button>
-            <button class="pagination-btn">62</button>
-            <button class="pagination-btn">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-    </div>
+    <?php endif; ?>
 </main>
 
-</div> <!-- Fin admin-layout -->
-
-<!-- Modal Nouveau Contact -->
-<div id="newContactModal" class="modal" style="display: none;">
+<!-- Modal détails contact -->
+<div id="contactModal" class="modal" style="display: none;">
     <div class="modal-content modal-large">
         <div class="modal-header">
-            <h3>Nouveau Contact</h3>
-            <button class="modal-close" onclick="closeModal('newContactModal')">
+            <h3 id="contactModalTitle">Détails du message</h3>
+            <button class="modal-close" onclick="closeModal('contactModal')">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="modal-body">
-            <form id="newContactForm">
-                <div class="form-tabs">
-                    <button type="button" class="tab-btn active" data-tab="general">Informations Générales</button>
-                    <button type="button" class="tab-btn" data-tab="contact">Contact</button>
-                    <button type="button" class="tab-btn" data-tab="business">Business</button>
-                    <button type="button" class="tab-btn" data-tab="notes">Notes</button>
-                </div>
-
-                <!-- Onglet Général -->
-                <div class="tab-content active" data-tab="general">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactType">Type de contact</label>
-                            <select id="contactType" class="form-control" required>
-                                <option value="">Sélectionner le type</option>
-                                <option value="entreprise">Entreprise</option>
-                                <option value="particulier">Particulier</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactStatus">Statut</label>
-                            <select id="contactStatus" class="form-control" required>
-                                <option value="prospect">Prospect</option>
-                                <option value="actif">Client Actif</option>
-                                <option value="vip">Client VIP</option>
-                                <option value="inactif">Inactif</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactName">Nom de l'entreprise / Nom complet</label>
-                        <input type="text" id="contactName" class="form-control" required>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactPerson">Personne de contact</label>
-                            <input type="text" id="contactPerson" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="contactPosition">Poste / Fonction</label>
-                            <input type="text" id="contactPosition" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactSector">Secteur d'activité</label>
-                        <select id="contactSector" class="form-control">
-                            <option value="">Sélectionner un secteur</option>
-                            <option value="technologie">Technologie</option>
-                            <option value="restauration">Restauration</option>
-                            <option value="sante">Santé</option>
-                            <option value="education">Éducation</option>
-                            <option value="commerce">Commerce</option>
-                            <option value="industrie">Industrie</option>
-                            <option value="services">Services</option>
-                            <option value="autre">Autre</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Onglet Contact -->
-                <div class="tab-content" data-tab="contact">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactEmail">Email principal</label>
-                            <input type="email" id="contactEmail" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactEmailSecondary">Email secondaire</label>
-                            <input type="email" id="contactEmailSecondary" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactPhone">Téléphone principal</label>
-                            <input type="tel" id="contactPhone" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactPhoneSecondary">Téléphone secondaire</label>
-                            <input type="tel" id="contactPhoneSecondary" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactAddress">Adresse complète</label>
-                        <textarea id="contactAddress" class="form-control" rows="3"></textarea>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactCity">Ville</label>
-                            <input type="text" id="contactCity" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="contactCountry">Pays</label>
-                            <select id="contactCountry" class="form-control">
-                                <option value="CM">Cameroun</option>
-                                <option value="FR">France</option>
-                                <option value="CA">Canada</option>
-                                <option value="SN">Sénégal</option>
-                                <option value="CI">Côte d'Ivoire</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactWebsite">Site web</label>
-                        <input type="url" id="contactWebsite" class="form-control" placeholder="https://">
-                    </div>
-                </div>
-
-                <!-- Onglet Business -->
-                <div class="tab-content" data-tab="business">
-                    <div class="form-group">
-                        <label for="contactServices">Services d'intérêt</label>
-                        <div class="checkbox-group">
-                            <label class="checkbox-item">
-                                <input type="checkbox" value="marketing">
-                                <span>Marketing Digital</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" value="graphique">
-                                <span>Design Graphique</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" value="multimedia">
-                                <span>Multimédia</span>
-                            </label>
-                            <label class="checkbox-item">
-                                <input type="checkbox" value="imprimerie">
-                                <span>Imprimerie</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="contactBudget">Budget estimé</label>
-                            <select id="contactBudget" class="form-control">
-                                <option value="">Non spécifié</option>
-                                <option value="500-1000">500€ - 1,000€</option>
-                                <option value="1000-5000">1,000€ - 5,000€</option>
-                                <option value="5000-10000">5,000€ - 10,000€</option>
-                                <option value="10000+">10,000€+</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactSource">Source de contact</label>
-                            <select id="contactSource" class="form-control">
-                                <option value="">Sélectionner la source</option>
-                                <option value="site-web">Site Web</option>
-                                <option value="reseaux-sociaux">Réseaux Sociaux</option>
-                                <option value="recommandation">Recommandation</option>
-                                <option value="publicite">Publicité</option>
-                                <option value="evenement">Événement</option>
-                                <option value="autre">Autre</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactTags">Tags</label>
-                        <input type="text" id="contactTags" class="form-control" placeholder="Séparer par des virgules">
-                        <small class="form-help">Ex: urgent, gros client, design moderne</small>
-                    </div>
-                </div>
-
-                <!-- Onglet Notes -->
-                <div class="tab-content" data-tab="notes">
-                    <div class="form-group">
-                        <label for="contactNotes">Notes internes</label>
-                        <textarea id="contactNotes" class="form-control" rows="6" placeholder="Notes privées sur le contact, historique des interactions, préférences, etc."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="contactObjectives">Objectifs commerciaux</label>
-                        <textarea id="contactObjectives" class="form-control" rows="4" placeholder="Objectifs à atteindre avec ce contact, stratégie de vente, etc."></textarea>
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-outline" onclick="closeModal('newContactModal')">Annuler</button>
-            <button type="button" class="btn btn-secondary">Sauvegarder Brouillon</button>
-            <button type="submit" form="newContactForm" class="btn btn-primary">Créer le Contact</button>
+        <div class="modal-body" id="contactModalBody">
+            <!-- Contenu dynamique -->
         </div>
     </div>
 </div>
 
-<!-- Modal Détails Contact -->
-<div id="contactDetailsModal" class="modal" style="display: none;">
-    <div class="modal-content modal-large">
-        <div class="modal-header">
-            <h3 id="contactDetailsTitle">Détails du Contact</h3>
-            <button class="modal-close" onclick="closeModal('contactDetailsModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div id="contactDetailsContent">
-                <!-- Contenu dynamique -->
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Scripts -->
-<script src="../assets/js/admin.js"></script>
 <script>
-// Gestion des filtres
-document.querySelectorAll('.filter-tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        
-        const type = this.getAttribute('data-type');
-        filterContactsByType(type);
-    });
-});
-
-function filterContactsByType(type) {
-    const rows = document.querySelectorAll('#contactsTable tbody tr');
-    
-    rows.forEach(row => {
-        if (type === 'all' || row.getAttribute('data-type') === type) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+function markRead(id) {
+    submitAction('mark_read', id);
 }
 
-// Recherche
-document.getElementById('contactSearch').addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#contactsTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(query) ? '' : 'none';
-    });
-});
-
-// Sélection multiple
-document.getElementById('selectAll').addEventListener('change', function() {
-    const checkboxes = document.querySelectorAll('.contact-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = this.checked;
-    });
-    updateBulkActions();
-});
-
-document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', updateBulkActions);
-});
-
-function updateBulkActions() {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    const bulkActions = document.getElementById('bulkActions');
-    const selectedCount = document.querySelector('.selected-count');
-    
-    if (selected.length > 0) {
-        bulkActions.style.display = 'flex';
-        selectedCount.textContent = `${selected.length} contact(s) sélectionné(s)`;
-    } else {
-        bulkActions.style.display = 'none';
-    }
+function markReplied(id) {
+    submitAction('mark_replied', id);
 }
 
-// Actions sur les contacts
-function viewContact(id) {
-    // Simulation des données du contact
-    const contactData = {
-        1: {
-            name: 'TechStart SARL',
-            person: 'Jean Dupont',
-            position: 'Directeur',
-            email: 'contact@techstart.cm',
-            phone: '+237 6XX XXX XXX',
-            projects: 3,
-            revenue: '5,200€',
-            status: 'Actif'
-        }
-    };
-    
-    const contact = contactData[id];
-    if (contact) {
-        document.getElementById('contactDetailsTitle').textContent = contact.name;
-        document.getElementById('contactDetailsContent').innerHTML = `
-            <div class="contact-details-grid">
-                <div class="detail-section">
-                    <h4>Informations Générales</h4>
-                    <p><strong>Personne de contact:</strong> ${contact.person}</p>
-                    <p><strong>Poste:</strong> ${contact.position}</p>
-                    <p><strong>Email:</strong> ${contact.email}</p>
-                    <p><strong>Téléphone:</strong> ${contact.phone}</p>
-                </div>
-                <div class="detail-section">
-                    <h4>Activité Commerciale</h4>
-                    <p><strong>Projets:</strong> ${contact.projects}</p>
-                    <p><strong>Chiffre d'affaires:</strong> ${contact.revenue}</p>
-                    <p><strong>Statut:</strong> ${contact.status}</p>
-                </div>
-            </div>
+function addNote(id) {
+    const note = prompt('Ajouter une note:');
+    if (note !== null) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="add_note">
+            <input type="hidden" name="contact_id" value="${id}">
+            <input type="hidden" name="note" value="${note}">
         `;
-        document.getElementById('contactDetailsModal').style.display = 'flex';
+        document.body.appendChild(form);
+        form.submit();
     }
-}
-
-function editContact(id) {
-    console.log('Éditer contact:', id);
-    // Ouvrir le modal d'édition avec les données pré-remplies
-}
-
-function emailContact(id) {
-    console.log('Envoyer email à:', id);
-    // Ouvrir le client email ou modal de composition
-}
-
-function callContact(id) {
-    console.log('Appeler contact:', id);
-    // Intégration avec système de téléphonie
 }
 
 function deleteContact(id) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce contact ?')) {
-        console.log('Supprimer contact:', id);
-        // Suppression du contact
+    if (confirm('Supprimer ce message ?')) {
+        submitAction('delete', id);
     }
 }
 
-function reactivateContact(id) {
-    if (confirm('Réactiver ce contact ?')) {
-        console.log('Réactiver contact:', id);
-        // Réactivation du contact
-    }
+function submitAction(action, id) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        <input type="hidden" name="action" value="${action}">
+        <input type="hidden" name="contact_id" value="${id}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
 }
 
-function createProject(id) {
-    console.log('Créer projet pour:', id);
-    // Redirection vers création de projet
-}
-
-// Actions en lot
-function bulkEmail() {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    console.log('Email en lot pour:', selected.length, 'contacts');
-}
-
-function bulkExport() {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    console.log('Export de:', selected.length, 'contacts');
-}
-
-function bulkTag() {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    const tag = prompt('Entrez le tag à ajouter:');
-    if (tag) {
-        console.log('Ajouter tag "' + tag + '" à:', selected.length, 'contacts');
-    }
-}
-
-function bulkDelete() {
-    const selected = document.querySelectorAll('.contact-checkbox:checked');
-    if (confirm(`Supprimer ${selected.length} contact(s) sélectionné(s) ?`)) {
-        console.log('Suppression en lot de:', selected.length, 'contacts');
-    }
-}
-
-// Modal nouveau contact
-function openNewContactModal() {
-    document.getElementById('newContactModal').style.display = 'flex';
+function viewContact(id) {
+    // Récupérer les détails via AJAX
+    fetch(`ajax/get_contact_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('contactModalTitle').textContent = `Message de ${data.contact.nom}`;
+                document.getElementById('contactModalBody').innerHTML = `
+                    <div class="contact-details">
+                        <div class="detail-row">
+                            <strong>Nom:</strong> ${data.contact.nom}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Email:</strong> ${data.contact.email}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Sujet:</strong> ${data.contact.sujet}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Date:</strong> ${new Date(data.contact.date_creation).toLocaleString()}
+                        </div>
+                        <div class="detail-row">
+                            <strong>Message:</strong><br>
+                            <div class="message-content">${data.contact.message.replace(/\n/g, '<br>')}</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('contactModal').style.display = 'flex';
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
-
-// Gestion des onglets dans le modal
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const tabName = this.getAttribute('data-tab');
-        const modal = this.closest('.modal');
-        
-        // Désactiver tous les onglets et contenus
-        modal.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
-        modal.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        // Activer l'onglet et le contenu sélectionnés
-        this.classList.add('active');
-        modal.querySelector(`.tab-content[data-tab="${tabName}"]`).classList.add('active');
-    });
-});
-
-// Import/Export
-function exportContacts() {
-    console.log('Export des contacts');
-    // Génération du fichier d'export
-}
-
-function importContacts() {
-    console.log('Import des contacts');
-    // Ouverture du sélecteur de fichier
-}
-
-// Soumission du formulaire
-document.getElementById('newContactForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    console.log('Création du contact:', Object.fromEntries(formData));
-    
-    // Simulation de la création
-    setTimeout(() => {
-        closeModal('newContactModal');
-        // Actualiser la liste des contacts
-        location.reload();
-    }, 1000);
-});
 </script>
 
 <?php include '../includes/footer.php'; ?>

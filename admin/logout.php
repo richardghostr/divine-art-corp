@@ -12,10 +12,9 @@ if (isset($_COOKIE['remember_token'])) {
 }
 
 // Log de déconnexion
-error_log("Déconnexion admin depuis " . $_SERVER['REMOTE_ADDR'] . " à " . date('Y-m-d H:i:s'));
+error_log("Déconnexion admin depuis " . ($_SERVER['REMOTE_ADDR'] ?? 'IP inconnue') . " à " . date('Y-m-d H:i:s'));
 
 // Redirection vers la page de connexion avec message
 header('Location: login.php?message=logout_success');
 exit;
 ?>
-
