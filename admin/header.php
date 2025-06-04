@@ -7,18 +7,21 @@ require_once '../config/database.php';
 require_once '../includes/auth.php';
 
 // Vérification de l'authentification pour les pages protégées
-$protected_pages = ['index.php', 'devis.php', 'contacts.php', 'settings.php'];
+$protected_pages = ['index.php', 'devis.php', 'contacts.php', 'settings.php', 'clients.php', 'projets.php'];
 $current_page = basename($_SERVER['PHP_SELF']);
 
 if (in_array($current_page, $protected_pages)) {
-    requireAuth();
+    $auth = new Auth();
+    $auth->requireAuth();
 }
 
 // Configuration de la page
 $page_config = [
-    'index.php' => ['title' => 'Dashboard', 'section' => 'dashboard'],
+    'index.php' => ['title' => 'Tableau de bord', 'section' => 'dashboard'],
     'devis.php' => ['title' => 'Gestion des Devis', 'section' => 'devis'],
     'contacts.php' => ['title' => 'Gestion des Contacts', 'section' => 'contacts'],
+    'clients.php' => ['title' => 'Gestion des Clients', 'section' => 'clients'],
+    'projets.php' => ['title' => 'Gestion des Projets', 'section' => 'projets'],
     'settings.php' => ['title' => 'Paramètres', 'section' => 'settings'],
     'login.php' => ['title' => 'Connexion', 'section' => 'login']
 ];
@@ -27,8 +30,9 @@ $current_config = $page_config[$current_page] ?? ['title' => 'Administration', '
 $page_title = $current_config['title'] . ' - Divine Art Corporation';
 
 // Récupération des informations utilisateur
-$current_user = getCurrentUser();
-$user_name = $current_user ? $current_user['username'] : 'Admin DAC';
+$auth = new Auth();
+$current_user = $auth->getCurrentUser();
+$user_name = $current_user ? $current_user['nom'] : 'Admin';
 
 // Récupération des statistiques pour les notifications
 $db = new DatabaseHelper();
@@ -87,7 +91,6 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/admin.css">
     
     <!-- Meta tags -->
@@ -178,11 +181,11 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                 
                 <div class="user-menu" id="userMenu">
                     <div class="user-avatar">
-                        <img src="/placeholder.svg?height=40&width=40" alt="Admin">
+                        <i class="fas fa-user-circle"></i>
                     </div>
                     <div class="user-info">
                         <span class="user-name"><?php echo htmlspecialchars($user_name); ?></span>
-                        <span class="user-role"><?php echo ucfirst($_SESSION['admin_role'] ?? 'Administrateur'); ?></span>
+                        <span class="user-role"><?php echo ucfirst($current_user['role'] ?? 'Administrateur'); ?></span>
                     </div>
                     <button class="user-dropdown-btn" id="userDropdownBtn">
                         <i class="fas fa-chevron-down"></i>
@@ -259,8 +262,7 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                     if (e.key === 'Enter') {
                         const query = this.value.trim();
                         if (query) {
-                            // Redirection vers la page de recherche ou filtrage
-                            console.log('Recherche:', query);
+                            window.location.href = `search.php?q=${encodeURIComponent(query)}`;
                         }
                     }
                 });

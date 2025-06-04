@@ -5,7 +5,7 @@
     .container {
         padding: 0 15px;
     }
-    
+   
     .hero-content .container {
         grid-template-columns: 1fr;
         gap: 2rem;

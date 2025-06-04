@@ -3,7 +3,14 @@
  * Configuration de la base de données avec MySQLi
  * Divine Art Corporation
  */
+// Configuration de la base de données
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'divine_art_corp');
 
+
+// Dans config/database.php
 class Database {
     private $host = 'localhost';
     private $db_name = 'divine_art_corp';
@@ -312,4 +319,8 @@ function generatePassword($length = 12) {
     $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     return substr(str_shuffle($chars), 0, $length);
 }
+
+
+// Connexion à la base de données
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 ?>

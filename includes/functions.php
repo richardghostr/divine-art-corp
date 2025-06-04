@@ -808,3 +808,36 @@ if (!function_exists('checkAuth')) {
 }
 
 ?>
+
+<?php
+// Add your custom functions here
+
+function getPageTitle($page) {
+    $titles = [
+        'welcome'     => 'Bienvenue',
+        'home'        => 'Accueil',
+        'marketing'   => 'Marketing',
+        'graphique'   => 'Graphisme',
+        'multimedia'  => 'Multimédia',
+        'imprimerie'  => 'Imprimerie',
+        'contact'     => 'Contact',
+        'devis'       => 'Demande de devis',
+        'admin'       => 'Administration'
+    ];
+    return $titles[$page] ?? 'Page';
+}
+
+function getPageDescription($page) {
+    $descriptions = [
+        'welcome'     => 'Bienvenue sur Divine Art Corporation.',
+        'home'        => 'Page d\'accueil de Divine Art Corporation.',
+        'marketing'   => 'Nos services de marketing.',
+        'graphique'   => 'Nos services graphiques.',
+        'multimedia'  => 'Nos services multimédia.',
+        'imprimerie'  => 'Nos services d\'imprimerie.',
+        'contact'     => 'Contactez-nous.',
+        'devis'       => 'Demandez un devis personnalisé.',
+        'admin'       => 'Espace d\'administration.'
+    ];
+    return $descriptions[$page] ?? 'Divine Art Corporation';
+}

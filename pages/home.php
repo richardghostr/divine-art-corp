@@ -1,6 +1,6 @@
 <!-- Hero Section -->
 <!-- Hero Section with Slider -->
-<section class="hero" style="height: 40vh;">
+<section class="hero">
     <div class="hero-slider">
         <!-- Slide 1 -->
         <div class="slide active" style="background-image: url('assets/images/slide1.jpg');background-size: cover; background-position: center;">

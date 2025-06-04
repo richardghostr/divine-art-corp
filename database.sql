@@ -1,250 +1,350 @@
--- Script de création de la base de données Divine Art Corporation
--- Version: 1.0
+-- Base de données Divine Art Corporation
+-- Version mise à jour avec MySQLi
 -- Date: 2024
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-SET AUTOCOMMIT = 0;
 START TRANSACTION;
 SET time_zone = "+00:00";
 
--- Création de la base de données
+-- --------------------------------------------------------
+
+--
+-- Structure de la base de données `divine_art_corp`
+--
+
 CREATE DATABASE IF NOT EXISTS `divine_art_corp` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `divine_art_corp`;
 
 -- --------------------------------------------------------
--- Structure de la table `admin_users`
--- --------------------------------------------------------
 
-CREATE TABLE `admin_users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `role` enum('admin','manager','editor') DEFAULT 'admin',
-  `last_login` timestamp NULL DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT 1,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Structure de la table `admins`
+--
 
--- --------------------------------------------------------
--- Structure de la table `contacts`
--- --------------------------------------------------------
-
-CREATE TABLE `contacts` (
+CREATE TABLE `admins` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nom` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `mot_de_passe` varchar(255) NOT NULL,
   `telephone` varchar(20) DEFAULT NULL,
-  `entreprise` varchar(100) DEFAULT NULL,
-  `sujet` varchar(100) DEFAULT NULL,
-  `message` text NOT NULL,
-  `newsletter` tinyint(1) DEFAULT 0,
-  `statut` enum('nouveau','lu','traite','archive') DEFAULT 'nouveau',
-  `repondu` tinyint(1) DEFAULT 0,
-  `date_reponse` timestamp NULL DEFAULT NULL,
-  `notes_admin` text DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `role` enum('admin','manager','editor') NOT NULL DEFAULT 'admin',
+  `statut` enum('actif','inactif') NOT NULL DEFAULT 'actif',
+  `derniere_connexion` datetime DEFAULT NULL,
+  `tentatives_connexion` int(11) DEFAULT 0,
+  `token_reset` varchar(255) DEFAULT NULL,
+  `token_reset_expire` datetime DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
-  KEY `idx_statut` (`statut`),
-  KEY `idx_date_creation` (`date_creation`)
+  KEY `idx_statut` (`statut`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
--- Structure de la table `devis`
--- --------------------------------------------------------
+--
+-- Données de la table `admins`
+--
 
-CREATE TABLE `devis` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `numero_devis` varchar(20) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `telephone` varchar(20) NOT NULL,
-  `entreprise` varchar(100) DEFAULT NULL,
-  `poste` varchar(100) DEFAULT NULL,
-  `service` varchar(50) NOT NULL,
-  `sous_service` varchar(100) DEFAULT NULL,
-  `description` text NOT NULL,
-  `budget` varchar(50) DEFAULT NULL,
-  `delai` varchar(50) DEFAULT NULL,
-  `newsletter` tinyint(1) DEFAULT 0,
-  `statut` enum('nouveau','en_cours','termine','annule') DEFAULT 'nouveau',
-  `priorite` enum('basse','normale','haute','urgente') DEFAULT 'normale',
-  `montant_estime` decimal(12,2) DEFAULT NULL,
-  `montant_final` decimal(12,2) DEFAULT NULL,
-  `date_debut` date DEFAULT NULL,
-  `date_fin_prevue` date DEFAULT NULL,
-  `date_fin_reelle` date DEFAULT NULL,
-  `notes_admin` text DEFAULT NULL,
-  `fichiers_joints` text DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `numero_devis` (`numero_devis`),
-  KEY `idx_email` (`email`),
-  KEY `idx_service` (`service`),
-  KEY `idx_statut` (`statut`),
-  KEY `idx_date_creation` (`date_creation`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO `admins` (`nom`, `email`, `mot_de_passe`, `telephone`, `role`, `statut`) VALUES
+('Administrateur Principal', 'admin@divineartcorp.cm', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '+237 6XX XXX XXX', 'admin', 'actif');
 
 -- --------------------------------------------------------
+
+--
 -- Structure de la table `services`
--- --------------------------------------------------------
+--
 
 CREATE TABLE `services` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nom` varchar(100) NOT NULL,
   `slug` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
+  `description` text,
   `description_courte` varchar(255) DEFAULT NULL,
   `icone` varchar(50) DEFAULT NULL,
-  `couleur` varchar(20) DEFAULT NULL,
-  `prix_min` decimal(10,2) DEFAULT NULL,
-  `prix_max` decimal(10,2) DEFAULT NULL,
-  `duree_min` int(11) DEFAULT NULL COMMENT 'Durée en jours',
-  `duree_max` int(11) DEFAULT NULL COMMENT 'Durée en jours',
-  `ordre_affichage` int(11) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1,
+  `couleur` varchar(7) DEFAULT '#e74c3c',
+  `prix_base` decimal(10,2) DEFAULT NULL,
+  `duree_estimee` int(11) DEFAULT NULL COMMENT 'Durée en jours',
+  `actif` tinyint(1) NOT NULL DEFAULT 1,
+  `ordre` int(11) DEFAULT 0,
   `meta_title` varchar(255) DEFAULT NULL,
   `meta_description` varchar(255) DEFAULT NULL,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `idx_actif` (`actif`),
-  KEY `idx_ordre` (`ordre_affichage`)
+  KEY `idx_ordre` (`ordre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Données de la table `services`
+--
+
+INSERT INTO `services` (`nom`, `slug`, `description`, `description_courte`, `icone`, `couleur`, `prix_base`, `duree_estimee`, `actif`, `ordre`) VALUES
+('Marketing Digital', 'marketing', 'Stratégies marketing complètes pour développer votre présence en ligne et atteindre vos objectifs commerciaux.', 'Développez votre présence digitale', 'fas fa-bullhorn', '#e74c3c', 1500.00, 30, 1, 1),
+('Conception Graphique', 'graphique', 'Création d\'identités visuelles, logos, supports de communication pour renforcer votre image de marque.', 'Créez votre identité visuelle', 'fas fa-paint-brush', '#9b59b6', 800.00, 15, 1, 2),
+('Conception Multimédia', 'multimedia', 'Production de contenus vidéo, animations, présentations interactives pour captiver votre audience.', 'Donnez vie à vos idées', 'fas fa-video', '#3498db', 2000.00, 45, 1, 3),
+('Imprimerie', 'imprimerie', 'Services d\'impression professionnelle pour tous vos supports de communication physiques.', 'Imprimez avec qualité', 'fas fa-print', '#27ae60', 300.00, 7, 1, 4);
+
 -- --------------------------------------------------------
+
+--
 -- Structure de la table `sous_services`
--- --------------------------------------------------------
+--
 
 CREATE TABLE `sous_services` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `service_id` int(11) NOT NULL,
   `nom` varchar(100) NOT NULL,
   `slug` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `prix_min` decimal(10,2) DEFAULT NULL,
-  `prix_max` decimal(10,2) DEFAULT NULL,
-  `duree_estimee` int(11) DEFAULT NULL COMMENT 'Durée en jours',
-  `ordre_affichage` int(11) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `description` text,
+  `prix_base` decimal(10,2) DEFAULT NULL,
+  `duree_estimee` int(11) DEFAULT NULL,
+  `actif` tinyint(1) NOT NULL DEFAULT 1,
+  `ordre` int(11) DEFAULT 0,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `service_slug` (`service_id`, `slug`),
-  KEY `idx_service_id` (`service_id`),
+  KEY `fk_sous_services_service` (`service_id`),
   KEY `idx_actif` (`actif`),
   CONSTRAINT `fk_sous_services_service` FOREIGN KEY (`service_id`) REFERENCES `services` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
--- Structure de la table `portfolio`
+--
+-- Données de la table `sous_services`
+--
+
+INSERT INTO `sous_services` (`service_id`, `nom`, `slug`, `description`, `prix_base`, `duree_estimee`, `actif`, `ordre`) VALUES
+(1, 'Stratégie Social Media', 'social-media', 'Gestion complète de vos réseaux sociaux', 800.00, 30, 1, 1),
+(1, 'Publicité en ligne', 'publicite-ligne', 'Campagnes publicitaires Google Ads, Facebook Ads', 1200.00, 15, 1, 2),
+(1, 'SEO/Référencement', 'seo-referencement', 'Optimisation pour les moteurs de recherche', 1000.00, 60, 1, 3),
+(2, 'Création de logo', 'creation-logo', 'Design de logo professionnel et unique', 500.00, 7, 1, 1),
+(2, 'Charte graphique', 'charte-graphique', 'Identité visuelle complète', 1200.00, 14, 1, 2),
+(2, 'Supports print', 'supports-print', 'Flyers, brochures, cartes de visite', 300.00, 5, 1, 3),
+(3, 'Vidéo promotionnelle', 'video-promotionnelle', 'Création de vidéos marketing', 1500.00, 21, 1, 1),
+(3, 'Animation 2D/3D', 'animation-2d-3d', 'Animations graphiques professionnelles', 2500.00, 30, 1, 2),
+(3, 'Montage vidéo', 'montage-video', 'Post-production et montage', 800.00, 10, 1, 3),
+(4, 'Impression offset', 'impression-offset', 'Impression haute qualité grand volume', 200.00, 3, 1, 1),
+(4, 'Impression numérique', 'impression-numerique', 'Impression rapide petit volume', 150.00, 1, 1, 2),
+(4, 'Finition', 'finition', 'Reliure, pelliculage, découpe', 100.00, 2, 1, 3);
+
 -- --------------------------------------------------------
 
-CREATE TABLE `portfolio` (
+--
+-- Structure de la table `devis`
+--
+
+CREATE TABLE `devis` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `titre` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `client` varchar(100) DEFAULT NULL,
-  `service_id` int(11) DEFAULT NULL,
-  `sous_service_id` int(11) DEFAULT NULL,
-  `image_principale` varchar(255) DEFAULT NULL,
-  `images_galerie` text DEFAULT NULL COMMENT 'JSON array of image paths',
-  `url_projet` varchar(255) DEFAULT NULL,
-  `technologies` varchar(255) DEFAULT NULL,
-  `date_realisation` date DEFAULT NULL,
-  `duree_projet` int(11) DEFAULT NULL COMMENT 'Durée en jours',
-  `featured` tinyint(1) DEFAULT 0,
-  `ordre_affichage` int(11) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1,
-  `meta_title` varchar(255) DEFAULT NULL,
-  `meta_description` varchar(255) DEFAULT NULL,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_service_id` (`service_id`),
-  KEY `idx_featured` (`featured`),
-  KEY `idx_actif` (`actif`),
-  CONSTRAINT `fk_portfolio_service` FOREIGN KEY (`service_id`) REFERENCES `services` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
--- Structure de la table `temoignages`
--- --------------------------------------------------------
-
-CREATE TABLE `temoignages` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `nom_client` varchar(100) NOT NULL,
-  `entreprise` varchar(100) DEFAULT NULL,
+  `numero_devis` varchar(50) NOT NULL,
+  `nom` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `telephone` varchar(20) NOT NULL,
+  `entreprise` varchar(150) DEFAULT NULL,
   `poste` varchar(100) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `telephone` varchar(20) DEFAULT NULL,
-  `temoignage` text NOT NULL,
-  `note` int(1) DEFAULT NULL CHECK (`note` >= 1 AND `note` <= 5),
-  `photo_client` varchar(255) DEFAULT NULL,
-  `service_concerne` varchar(100) DEFAULT NULL,
-  `approuve` tinyint(1) DEFAULT 0,
-  `featured` tinyint(1) DEFAULT 0,
-  `ordre_affichage` int(11) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `service` varchar(50) NOT NULL,
+  `sous_service` varchar(100) DEFAULT NULL,
+  `description` text NOT NULL,
+  `budget` varchar(50) DEFAULT NULL,
+  `delai` varchar(50) DEFAULT NULL,
+  `fichiers_joints` text DEFAULT NULL COMMENT 'JSON des fichiers uploadés',
+  `statut` enum('nouveau','en_cours','termine','annule','en_attente') NOT NULL DEFAULT 'nouveau',
+  `priorite` enum('basse','normale','haute','urgente') NOT NULL DEFAULT 'normale',
+  `montant_estime` decimal(10,2) DEFAULT NULL,
+  `montant_final` decimal(10,2) DEFAULT NULL,
+  `notes_admin` text DEFAULT NULL,
+  `notes_client` text DEFAULT NULL,
+  `date_debut` date DEFAULT NULL,
+  `date_fin_prevue` date DEFAULT NULL,
+  `date_fin_reelle` date DEFAULT NULL,
+  `admin_assigne` int(11) DEFAULT NULL,
+  `source` varchar(50) DEFAULT 'site_web',
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_approuve` (`approuve`),
-  KEY `idx_featured` (`featured`),
-  KEY `idx_actif` (`actif`)
+  UNIQUE KEY `numero_devis` (`numero_devis`),
+  KEY `idx_statut` (`statut`),
+  KEY `idx_service` (`service`),
+  KEY `idx_email` (`email`),
+  KEY `idx_date_creation` (`date_creation`),
+  KEY `idx_priorite` (`priorite`),
+  KEY `fk_devis_admin` (`admin_assigne`),
+  CONSTRAINT `fk_devis_admin` FOREIGN KEY (`admin_assigne`) REFERENCES `admins` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- Structure de la table `newsletter`
+
+--
+-- Structure de la table `contacts`
+--
+
+CREATE TABLE `contacts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `numero_contact` varchar(50) NOT NULL,
+  `nom` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `telephone` varchar(20) DEFAULT NULL,
+  `entreprise` varchar(150) DEFAULT NULL,
+  `sujet` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `statut` enum('nouveau','lu','repondu','archive') NOT NULL DEFAULT 'nouveau',
+  `priorite` enum('basse','normale','haute','urgente') NOT NULL DEFAULT 'normale',
+  `notes_admin` text DEFAULT NULL,
+  `admin_assigne` int(11) DEFAULT NULL,
+  `date_reponse` datetime DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `source` varchar(50) DEFAULT 'site_web',
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `numero_contact` (`numero_contact`),
+  KEY `idx_statut` (`statut`),
+  KEY `idx_email` (`email`),
+  KEY `idx_date_creation` (`date_creation`),
+  KEY `fk_contacts_admin` (`admin_assigne`),
+  CONSTRAINT `fk_contacts_admin` FOREIGN KEY (`admin_assigne`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- --------------------------------------------------------
 
-CREATE TABLE `newsletter` (
+--
+-- Structure de la table `projets`
+--
+
+CREATE TABLE `projets` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `email` varchar(100) NOT NULL,
-  `nom` varchar(100) DEFAULT NULL,
-  `statut` enum('actif','inactif','desabonne') DEFAULT 'actif',
-  `token_desabonnement` varchar(255) DEFAULT NULL,
-  `source` varchar(50) DEFAULT NULL COMMENT 'contact, devis, inscription',
-  `ip_address` varchar(45) DEFAULT NULL,
-  `date_inscription` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `date_desabonnement` timestamp NULL DEFAULT NULL,
+  `devis_id` int(11) NOT NULL,
+  `nom` varchar(200) NOT NULL,
+  `description` text,
+  `statut` enum('planifie','en_cours','en_pause','termine','annule') NOT NULL DEFAULT 'planifie',
+  `progression` int(11) DEFAULT 0 COMMENT 'Pourcentage de progression',
+  `date_debut` date DEFAULT NULL,
+  `date_fin_prevue` date DEFAULT NULL,
+  `date_fin_reelle` date DEFAULT NULL,
+  `budget_alloue` decimal(10,2) DEFAULT NULL,
+  `cout_reel` decimal(10,2) DEFAULT NULL,
+  `admin_responsable` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `fichiers_livres` text DEFAULT NULL COMMENT 'JSON des fichiers livrés',
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_projets_devis` (`devis_id`),
+  KEY `fk_projets_admin` (`admin_responsable`),
+  KEY `idx_statut` (`statut`),
+  CONSTRAINT `fk_projets_devis` FOREIGN KEY (`devis_id`) REFERENCES `devis` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_projets_admin` FOREIGN KEY (`admin_responsable`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `taches`
+--
+
+CREATE TABLE `taches` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `projet_id` int(11) NOT NULL,
+  `nom` varchar(200) NOT NULL,
+  `description` text,
+  `statut` enum('a_faire','en_cours','termine','annule') NOT NULL DEFAULT 'a_faire',
+  `priorite` enum('basse','normale','haute','urgente') NOT NULL DEFAULT 'normale',
+  `date_debut` date DEFAULT NULL,
+  `date_fin_prevue` date DEFAULT NULL,
+  `date_fin_reelle` date DEFAULT NULL,
+  `temps_estime` int(11) DEFAULT NULL COMMENT 'Temps en heures',
+  `temps_passe` int(11) DEFAULT NULL COMMENT 'Temps en heures',
+  `admin_assigne` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `ordre` int(11) DEFAULT 0,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_taches_projet` (`projet_id`),
+  KEY `fk_taches_admin` (`admin_assigne`),
+  KEY `idx_statut` (`statut`),
+  CONSTRAINT `fk_taches_projet` FOREIGN KEY (`projet_id`) REFERENCES `projets` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_taches_admin` FOREIGN KEY (`admin_assigne`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `clients`
+--
+
+CREATE TABLE `clients` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nom` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `telephone` varchar(20) DEFAULT NULL,
+  `entreprise` varchar(150) DEFAULT NULL,
+  `poste` varchar(100) DEFAULT NULL,
+  `adresse` text DEFAULT NULL,
+  `ville` varchar(100) DEFAULT NULL,
+  `pays` varchar(100) DEFAULT 'Cameroun',
+  `site_web` varchar(255) DEFAULT NULL,
+  `secteur_activite` varchar(100) DEFAULT NULL,
+  `taille_entreprise` enum('tpe','pme','eti','ge') DEFAULT NULL,
+  `budget_annuel` varchar(50) DEFAULT NULL,
+  `source_acquisition` varchar(100) DEFAULT NULL,
+  `statut` enum('prospect','client','client_vip','inactif') NOT NULL DEFAULT 'prospect',
+  `notes` text DEFAULT NULL,
+  `tags` text DEFAULT NULL COMMENT 'Tags séparés par des virgules',
+  `date_premier_contact` date DEFAULT NULL,
+  `date_dernier_contact` date DEFAULT NULL,
+  `nb_projets` int(11) DEFAULT 0,
+  `ca_total` decimal(10,2) DEFAULT 0.00,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
-  KEY `idx_statut` (`statut`)
+  KEY `idx_statut` (`statut`),
+  KEY `idx_entreprise` (`entreprise`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- Structure de la table `parametres`
--- --------------------------------------------------------
 
-CREATE TABLE `parametres` (
+--
+-- Structure de la table `factures`
+--
+
+CREATE TABLE `factures` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `cle` varchar(100) NOT NULL,
-  `valeur` text DEFAULT NULL,
-  `type` enum('text','number','boolean','json','file') DEFAULT 'text',
-  `description` varchar(255) DEFAULT NULL,
-  `groupe` varchar(50) DEFAULT 'general',
-  `ordre_affichage` int(11) DEFAULT 0,
-  `date_modification` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `numero_facture` varchar(50) NOT NULL,
+  `devis_id` int(11) DEFAULT NULL,
+  `client_id` int(11) NOT NULL,
+  `montant_ht` decimal(10,2) NOT NULL,
+  `taux_tva` decimal(5,2) DEFAULT 19.25,
+  `montant_tva` decimal(10,2) NOT NULL,
+  `montant_ttc` decimal(10,2) NOT NULL,
+  `statut` enum('brouillon','envoyee','payee','en_retard','annulee') NOT NULL DEFAULT 'brouillon',
+  `date_emission` date NOT NULL,
+  `date_echeance` date NOT NULL,
+  `date_paiement` date DEFAULT NULL,
+  `mode_paiement` varchar(50) DEFAULT NULL,
+  `reference_paiement` varchar(100) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `conditions_paiement` text DEFAULT NULL,
+  `fichier_pdf` varchar(255) DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `cle` (`cle`),
-  KEY `idx_groupe` (`groupe`)
+  UNIQUE KEY `numero_facture` (`numero_facture`),
+  KEY `fk_factures_devis` (`devis_id`),
+  KEY `fk_factures_client` (`client_id`),
+  KEY `idx_statut` (`statut`),
+  CONSTRAINT `fk_factures_devis` FOREIGN KEY (`devis_id`) REFERENCES `devis` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_factures_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
+
+--
 -- Structure de la table `logs_activite`
--- --------------------------------------------------------
+--
 
 CREATE TABLE `logs_activite` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -255,211 +355,404 @@ CREATE TABLE `logs_activite` (
   `details` text DEFAULT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` text DEFAULT NULL,
-  `date_creation` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
+  KEY `fk_logs_admin` (`user_id`),
   KEY `idx_action` (`action`),
-  KEY `idx_date_creation` (`date_creation`),
-  CONSTRAINT `fk_logs_user` FOREIGN KEY (`user_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL
+  KEY `idx_date` (`date_creation`),
+  CONSTRAINT `fk_logs_admin` FOREIGN KEY (`user_id`) REFERENCES `admins` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
--- Insertion des données par défaut
+
+--
+-- Structure de la table `configurations`
+--
+
+CREATE TABLE `configurations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `cle` varchar(100) NOT NULL,
+  `valeur` text DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `type` enum('string','integer','boolean','json','text') NOT NULL DEFAULT 'string',
+  `categorie` varchar(50) DEFAULT 'general',
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_modification` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cle` (`cle`),
+  KEY `idx_categorie` (`categorie`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Données de la table `configurations`
+--
+
+INSERT INTO `configurations` (`cle`, `valeur`, `description`, `type`, `categorie`) VALUES
+('site_name', 'Divine Art Corporation', 'Nom du site web', 'string', 'general'),
+('site_email', 'contact@divineartcorp.cm', 'Email principal du site', 'string', 'general'),
+('site_phone', '+237 6XX XXX XXX', 'Téléphone principal', 'string', 'general'),
+('site_address', 'Douala, Cameroun', 'Adresse de l\'entreprise', 'text', 'general'),
+('site_description', 'Agence créative spécialisée dans le marketing digital, design graphique et multimédia', 'Description du site', 'text', 'seo'),
+('notifications_email', '1', 'Activer les notifications par email', 'boolean', 'notifications'),
+('notifications_sms', '0', 'Activer les notifications par SMS', 'boolean', 'notifications'),
+('max_file_size', '5242880', 'Taille maximale des fichiers en octets (5MB)', 'integer', 'uploads'),
+('allowed_file_types', 'jpg,jpeg,png,gif,pdf,doc,docx,zip', 'Types de fichiers autorisés', 'string', 'uploads'),
+('smtp_host', '', 'Serveur SMTP', 'string', 'email'),
+('smtp_port', '587', 'Port SMTP', 'integer', 'email'),
+('smtp_username', '', 'Nom d\'utilisateur SMTP', 'string', 'email'),
+('smtp_password', '', 'Mot de passe SMTP', 'string', 'email'),
+('google_analytics_id', '', 'ID Google Analytics', 'string', 'tracking'),
+('facebook_pixel_id', '', 'ID Facebook Pixel', 'string', 'tracking'),
+('maintenance_mode', '0', 'Mode maintenance activé', 'boolean', 'system'),
+('cache_enabled', '1', 'Cache activé', 'boolean', 'performance'),
+('cache_duration', '3600', 'Durée du cache en secondes', 'integer', 'performance');
+
 -- --------------------------------------------------------
 
--- Insertion des utilisateurs admin
-INSERT INTO `admin_users` (`username`, `password`, `email`, `role`) VALUES
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@divineartcorp.cm', 'admin'),
-('manager', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager@divineartcorp.cm', 'manager');
+--
+-- Structure de la table `fichiers`
+--
 
--- Insertion des services
-INSERT INTO `services` (`nom`, `slug`, `description`, `description_courte`, `icone`, `couleur`, `prix_min`, `prix_max`, `duree_min`, `duree_max`, `ordre_affichage`, `actif`) VALUES
-('Marketing Digital', 'marketing-digital', 'Stratégies digitales performantes pour développer votre présence en ligne et générer plus de leads qualifiés.', 'Stratégies digitales performantes pour booster votre présence en ligne', 'fas fa-chart-line', '#e74c3c', 75000.00, 500000.00, 7, 60, 1, 1),
-('Conception Graphique', 'conception-graphique', 'Identité visuelle professionnelle pour marquer les esprits et créer une image de marque forte.', 'Identité visuelle professionnelle pour marquer les esprits', 'fas fa-palette', '#3498db', 25000.00, 300000.00, 3, 21, 2, 1),
-('Conception Multimédia', 'conception-multimedia', 'Contenus visuels impactants pour captiver votre audience sur tous les canaux de communication.', 'Contenus visuels impactants pour captiver votre audience', 'fas fa-video', '#9b59b6', 100000.00, 800000.00, 5, 45, 3, 1),
-('Imprimerie', 'imprimerie', 'Impression haute qualité pour tous vos supports marketing, du petit format aux grands panneaux.', 'Impression haute qualité pour tous vos supports marketing', 'fas fa-print', '#27ae60', 5000.00, 200000.00, 1, 14, 4, 1);
+CREATE TABLE `fichiers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nom_original` varchar(255) NOT NULL,
+  `nom_fichier` varchar(255) NOT NULL,
+  `chemin` varchar(500) NOT NULL,
+  `type_mime` varchar(100) NOT NULL,
+  `taille` int(11) NOT NULL,
+  `extension` varchar(10) NOT NULL,
+  `table_liee` varchar(50) DEFAULT NULL,
+  `id_enregistrement` int(11) DEFAULT NULL,
+  `type_fichier` enum('devis','contact','projet','facture','autre') DEFAULT 'autre',
+  `description` varchar(255) DEFAULT NULL,
+  `admin_upload` int(11) DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_fichiers_admin` (`admin_upload`),
+  KEY `idx_table_liee` (`table_liee`, `id_enregistrement`),
+  CONSTRAINT `fk_fichiers_admin` FOREIGN KEY (`admin_upload`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insertion des sous-services
-INSERT INTO `sous_services` (`service_id`, `nom`, `slug`, `description`, `prix_min`, `prix_max`, `duree_estimee`, `ordre_affichage`, `actif`) VALUES
--- Marketing Digital
-(1, 'SEO & SEM', 'seo-sem', 'Optimisation pour les moteurs de recherche et campagnes publicitaires Google Ads', 150000.00, 300000.00, 30, 1, 1),
-(1, 'Réseaux Sociaux', 'reseaux-sociaux', 'Gestion complète de vos réseaux sociaux et community management', 100000.00, 200000.00, 30, 2, 1),
-(1, 'Email Marketing', 'email-marketing', 'Campagnes d\'email marketing personnalisées et automatisées', 75000.00, 150000.00, 14, 3, 1),
-(1, 'Campagnes Publicitaires', 'campagnes-publicitaires', 'Création et gestion de campagnes publicitaires multi-canaux', 200000.00, 500000.00, 21, 4, 1),
-(1, 'Études de Marché', 'etudes-marche', 'Analyses approfondies de votre marché et de la concurrence', 300000.00, 400000.00, 21, 5, 1),
-(1, 'Relations Publiques', 'relations-publiques', 'Gestion de votre image de marque et communication événementielle', 250000.00, 350000.00, 30, 6, 1),
+-- --------------------------------------------------------
 
--- Conception Graphique
-(2, 'Identité Visuelle', 'identite-visuelle', 'Création complète de votre identité de marque avec logo et charte graphique', 200000.00, 300000.00, 14, 1, 1),
-(2, 'Supports de Communication', 'supports-communication', 'Design de flyers, brochures, cartes de visite et affiches', 25000.00, 100000.00, 5, 2, 1),
-(2, 'Packaging & Étiquetage', 'packaging-etiquetage', 'Conception d\'emballages attractifs et d\'étiquettes produits', 150000.00, 250000.00, 10, 3, 1),
-(2, 'Illustrations & Infographies', 'illustrations-infographies', 'Créations visuelles sur mesure pour illustrer vos concepts', 75000.00, 150000.00, 7, 4, 1),
-(2, 'UI/UX Design', 'ui-ux-design', 'Maquettes web et mobile optimisées pour l\'expérience utilisateur', 300000.00, 500000.00, 21, 5, 1),
-(2, 'Design Textile', 'design-textile', 'Création de designs pour vêtements et objets promotionnels', 50000.00, 120000.00, 7, 6, 1),
+--
+-- Structure de la table `notifications`
+--
 
--- Conception Multimédia
-(3, 'Production Vidéo', 'production-video', 'Création de vidéos promotionnelles, institutionnelles et publicitaires', 200000.00, 800000.00, 21, 1, 1),
-(3, 'Photographie Professionnelle', 'photographie-professionnelle', 'Shootings photo pour produits, événements et portraits corporate', 100000.00, 300000.00, 3, 2, 1),
-(3, 'Motion Design', 'motion-design', 'Animations graphiques et effets visuels pour dynamiser vos communications', 150000.00, 400000.00, 14, 3, 1),
-(3, 'Contenu Réseaux Sociaux', 'contenu-reseaux-sociaux', 'Création de contenus visuels optimisés pour vos réseaux sociaux', 75000.00, 200000.00, 7, 4, 1),
-(3, 'Présentations Interactives', 'presentations-interactives', 'Présentations PowerPoint et supports visuels percutants', 100000.00, 200000.00, 7, 5, 1),
-(3, 'Podcasts & Production Audio', 'podcasts-production-audio', 'Enregistrement, montage et production de contenus audio', 80000.00, 250000.00, 10, 6, 1),
+CREATE TABLE `notifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `admin_id` int(11) NOT NULL,
+  `titre` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `type` enum('info','success','warning','error') NOT NULL DEFAULT 'info',
+  `lu` tinyint(1) NOT NULL DEFAULT 0,
+  `action_url` varchar(500) DEFAULT NULL,
+  `table_liee` varchar(50) DEFAULT NULL,
+  `id_enregistrement` int(11) DEFAULT NULL,
+  `date_lecture` datetime DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_notifications_admin` (`admin_id`),
+  KEY `idx_lu` (`lu`),
+  KEY `idx_date_creation` (`date_creation`),
+  CONSTRAINT `fk_notifications_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Imprimerie
-(4, 'Impression Numérique', 'impression-numerique', 'Impression rapide et économique pour petites et moyennes séries', 5000.00, 50000.00, 2, 1, 1),
-(4, 'Impression Offset', 'impression-offset', 'Qualité supérieure pour gros tirages et supports premium', 10000.00, 100000.00, 5, 2, 1),
-(4, 'Grands Formats', 'grands-formats', 'Impression grand format pour communications extérieures', 25000.00, 200000.00, 3, 3, 1),
-(4, 'Supports Marketing', 'supports-marketing', 'Tous vos supports de communication imprimés', 15000.00, 80000.00, 3, 4, 1),
-(4, 'Objets Publicitaires', 'objets-publicitaires', 'Personnalisation d\'objets promotionnels pour votre marque', 20000.00, 150000.00, 7, 5, 1),
-(4, 'Reliure & Finitions', 'reliure-finitions', 'Finitions professionnelles pour vos documents importants', 8000.00, 40000.00, 2, 6, 1);
+-- --------------------------------------------------------
 
--- Insertion des témoignages
-INSERT INTO `temoignages` (`nom_client`, `entreprise`, `poste`, `temoignage`, `note`, `service_concerne`, `approuve`, `featured`, `ordre_affichage`, `actif`) VALUES
-('Marie Dubois', 'TechCorp Sarl', 'Directrice Marketing', 'Grâce à Divine Art Corporation, notre visibilité en ligne a augmenté de 300% en 6 mois. Leur expertise en SEO est remarquable et leur équipe est très professionnelle.', 5, 'Marketing Digital', 1, 1, 1, 1),
-('Jean Kamga', 'Fashion Plus', 'CEO', 'L\'équipe de DAC a transformé notre stratégie social media. Nos ventes ont doublé grâce à leur approche créative et leur suivi rigoureux. Je recommande vivement !', 5, 'Marketing Digital', 1, 1, 2, 1),
-('Sophie Nkomo', 'Restaurant Le Gourmet', 'Propriétaire', 'Le nouveau logo et l\'identité visuelle créés par Divine Art Corporation ont complètement relooké notre restaurant. Nos clients adorent le nouveau design !', 5, 'Conception Graphique', 1, 1, 3, 1),
-('Paul Mbarga', 'Clinique Santé Plus', 'Directeur', 'La vidéo promotionnelle réalisée par DAC a dépassé nos attentes. Professionnalisme, créativité et respect des délais : tout y était !', 5, 'Conception Multimédia', 1, 0, 4, 1),
-('Fatima Ousmane', 'Boutique Élégance', 'Gérante', 'Excellent travail d\'impression pour nos cartes de visite et flyers. La qualité est au rendez-vous et les prix sont très compétitifs.', 4, 'Imprimerie', 1, 0, 5, 1);
+--
+-- Structure de la table `sessions_admin`
+--
 
--- Insertion des paramètres
-INSERT INTO `parametres` (`cle`, `valeur`, `type`, `description`, `groupe`, `ordre_affichage`) VALUES
-('site_name', 'Divine Art Corporation', 'text', 'Nom du site web', 'general', 1),
-('site_description', 'Votre partenaire créatif au Cameroun pour tous vos besoins en marketing, design et impression.', 'text', 'Description du site', 'general', 2),
-('contact_email', 'contact@divineartcorp.cm', 'text', 'Email de contact principal', 'contact', 1),
-('contact_phone', '+237 6XX XXX XXX', 'text', 'Téléphone de contact', 'contact', 2),
-('contact_address', 'Douala, Akwa Nord, Cameroun', 'text', 'Adresse physique', 'contact', 3),
-('social_facebook', 'https://facebook.com/divineartcorp', 'text', 'Page Facebook', 'social', 1),
-('social_instagram', 'https://instagram.com/divineartcorp', 'text', 'Compte Instagram', 'social', 2),
-('social_linkedin', 'https://linkedin.com/company/divineartcorp', 'text', 'Page LinkedIn', 'social', 3),
-('social_twitter', 'https://twitter.com/divineartcorp', 'text', 'Compte Twitter', 'social', 4),
-('email_smtp_host', 'smtp.gmail.com', 'text', 'Serveur SMTP', 'email', 1),
-('email_smtp_port', '587', 'number', 'Port SMTP', 'email', 2),
-('email_smtp_username', 'contact@divineartcorp.cm', 'text', 'Nom d\'utilisateur SMTP', 'email', 3),
-('email_smtp_password', '', 'text', 'Mot de passe SMTP', 'email', 4),
-('analytics_google', '', 'text', 'Code Google Analytics', 'analytics', 1),
-('seo_meta_title', 'Divine Art Corporation - Votre partenaire créatif au Cameroun', 'text', 'Titre SEO par défaut', 'seo', 1),
-('seo_meta_description', 'Services de marketing digital, conception graphique, multimédia et imprimerie au Cameroun. Expertise professionnelle pour développer votre entreprise.', 'text', 'Description SEO par défaut', 'seo', 2);
+CREATE TABLE `sessions_admin` (
+  `id` varchar(128) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `user_agent` text NOT NULL,
+  `donnees` text DEFAULT NULL,
+  `derniere_activite` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_sessions_admin` (`admin_id`),
+  KEY `idx_derniere_activite` (`derniere_activite`),
+  CONSTRAINT `fk_sessions_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insertion d'exemples de portfolio
-INSERT INTO `portfolio` (`titre`, `description`, `client`, `service_id`, `image_principale`, `date_realisation`, `duree_projet`, `featured`, `ordre_affichage`, `actif`) VALUES
-('Identité Visuelle Restaurant Le Gourmet', 'Création complète de l\'identité visuelle pour ce restaurant haut de gamme de Douala, incluant logo, charte graphique et supports de communication.', 'Restaurant Le Gourmet', 2, 'portfolio/restaurant-gourmet-logo.jpg', '2024-01-15', 14, 1, 1, 1),
-('Campagne Digital TechCorp', 'Stratégie marketing digital complète avec SEO, campagnes Google Ads et gestion des réseaux sociaux pour cette entreprise technologique.', 'TechCorp Sarl', 1, 'portfolio/techcorp-campaign.jpg', '2024-02-20', 45, 1, 2, 1),
-('Vidéo Promotionnelle Banque Atlantique', 'Production d\'une vidéo institutionnelle de 3 minutes présentant les services de la banque avec motion design et voix-off professionnelle.', 'Banque Atlantique', 3, 'portfolio/banque-atlantique-video.jpg', '2024-03-10', 21, 1, 3, 1),
-('Catalogue Produits Fashion Plus', 'Impression offset haute qualité d\'un catalogue de 48 pages pour cette marque de mode camerounaise.', 'Fashion Plus', 4, 'portfolio/fashion-plus-catalogue.jpg', '2024-01-30', 7, 0, 4, 1);
+-- --------------------------------------------------------
 
--- Insertion d'exemples de contacts
-INSERT INTO `contacts` (`nom`, `email`, `telephone`, `entreprise`, `sujet`, `message`, `newsletter`, `statut`) VALUES
-('Alain Nguema', 'alain.nguema@email.cm', '+237 677123456', 'Startup Innov', 'marketing', 'Bonjour, je souhaiterais avoir des informations sur vos services de marketing digital pour ma startup.', 1, 'nouveau'),
-('Clarisse Mballa', 'clarisse@boutique-style.cm', '+237 698765432', 'Boutique Style', 'graphique', 'Nous avons besoin d\'une nouvelle identité visuelle pour notre boutique. Pouvez-vous nous aider ?', 0, 'lu'),
-('Robert Essomba', 'r.essomba@gmail.com', '+237 655987654', '', 'autre', 'Je voudrais connaître vos tarifs pour l\'impression de cartes de visite.', 1, 'traite');
+--
+-- Structure de la table `statistiques`
+--
 
--- Insertion d'exemples de devis
-INSERT INTO `devis` (`numero_devis`, `nom`, `email`, `telephone`, `entreprise`, `service`, `sous_service`, `description`, `budget`, `delai`, `newsletter`, `statut`, `montant_estime`) VALUES
-('DAC-2024-0001', 'Marie Fotso', 'marie.fotso@entreprise.cm', '+237 677888999', 'Entreprise Fotso & Fils', 'marketing', 'seo-sem', 'Nous souhaitons améliorer notre référencement naturel et lancer des campagnes Google Ads pour notre entreprise de BTP.', '300k-500k', '1-2-mois', 1, 'en_cours', 350000.00),
-('DAC-2024-0002', 'Pierre Ndjock', 'pierre@restaurant-saveurs.cm', '+237 698111222', 'Restaurant Les Saveurs', 'graphique', 'identite-visuelle', 'Création d\'un logo et d\'une charte graphique complète pour notre nouveau restaurant.', '100k-300k', '3-4-semaines', 0, 'nouveau', 250000.00),
-('DAC-2024-0003', 'Sylvie Manga', 'sylvie.manga@ong-espoir.org', '+237 655333444', 'ONG Espoir', 'multimedia', 'production-video', 'Réalisation d\'une vidéo de sensibilisation de 5 minutes sur l\'éducation des enfants.', '300k-500k', '1-2-mois', 1, 'termine', 400000.00);
+CREATE TABLE `statistiques` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `date_stat` date NOT NULL,
+  `type` varchar(50) NOT NULL,
+  `valeur` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `donnees_json` json DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_date_type` (`date_stat`, `type`),
+  KEY `idx_date_stat` (`date_stat`),
+  KEY `idx_type` (`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insertion dans la newsletter
-INSERT INTO `newsletter` (`email`, `nom`, `statut`, `source`) VALUES
-('marie.fotso@entreprise.cm', 'Marie Fotso', 'actif', 'devis'),
-('alain.nguema@email.cm', 'Alain Nguema', 'actif', 'contact'),
-('sylvie.manga@ong-espoir.org', 'Sylvie Manga', 'actif', 'devis'),
-('info@techcorp.cm', 'TechCorp', 'actif', 'inscription');
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `sauvegardes`
+--
+
+CREATE TABLE `sauvegardes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nom_fichier` varchar(255) NOT NULL,
+  `chemin` varchar(500) NOT NULL,
+  `taille` bigint(20) NOT NULL,
+  `type` enum('automatique','manuelle') NOT NULL DEFAULT 'automatique',
+  `statut` enum('en_cours','termine','erreur') NOT NULL DEFAULT 'en_cours',
+  `admin_id` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `date_creation` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_fin` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_sauvegardes_admin` (`admin_id`),
+  KEY `idx_date_creation` (`date_creation`),
+  CONSTRAINT `fk_sauvegardes_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Vues pour faciliter les requêtes
+--
+
+--
+-- Vue pour les statistiques des devis
+--
+CREATE VIEW `vue_stats_devis` AS
+SELECT 
+    DATE(date_creation) as date_stat,
+    COUNT(*) as total_devis,
+    SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END) as devis_nouveaux,
+    SUM(CASE WHEN statut = 'en_cours' THEN 1 ELSE 0 END) as devis_en_cours,
+    SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END) as devis_termines,
+    SUM(CASE WHEN statut = 'annule' THEN 1 ELSE 0 END) as devis_annules,
+    AVG(montant_final) as montant_moyen,
+    SUM(montant_final) as montant_total
+FROM devis 
+GROUP BY DATE(date_creation)
+ORDER BY date_stat DESC;
+
+--
+-- Vue pour les statistiques des contacts
+--
+CREATE VIEW `vue_stats_contacts` AS
+SELECT 
+    DATE(date_creation) as date_stat,
+    COUNT(*) as total_contacts,
+    SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END) as contacts_nouveaux,
+    SUM(CASE WHEN statut = 'lu' THEN 1 ELSE 0 END) as contacts_lus,
+    SUM(CASE WHEN statut = 'repondu' THEN 1 ELSE 0 END) as contacts_repondus
+FROM contacts 
+GROUP BY DATE(date_creation)
+ORDER BY date_stat DESC;
+
+--
+-- Vue pour le tableau de bord
+--
+CREATE VIEW `vue_dashboard` AS
+SELECT 
+    'devis' as type,
+    COUNT(*) as total,
+    SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END) as en_attente,
+    SUM(CASE WHEN statut = 'en_cours' THEN 1 ELSE 0 END) as en_cours,
+    SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END) as termines,
+    SUM(CASE WHEN DATE(date_creation) = CURDATE() THEN 1 ELSE 0 END) as aujourd_hui,
+    SUM(CASE WHEN WEEK(date_creation) = WEEK(CURDATE()) AND YEAR(date_creation) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as cette_semaine,
+    SUM(CASE WHEN MONTH(date_creation) = MONTH(CURDATE()) AND YEAR(date_creation) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as ce_mois
+FROM devis
+
+UNION ALL
+
+SELECT 
+    'contacts' as type,
+    COUNT(*) as total,
+    SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END) as en_attente,
+    SUM(CASE WHEN statut = 'lu' THEN 1 ELSE 0 END) as en_cours,
+    SUM(CASE WHEN statut = 'repondu' THEN 1 ELSE 0 END) as termines,
+    SUM(CASE WHEN DATE(date_creation) = CURDATE() THEN 1 ELSE 0 END) as aujourd_hui,
+    SUM(CASE WHEN WEEK(date_creation) = WEEK(CURDATE()) AND YEAR(date_creation) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as cette_semaine,
+    SUM(CASE WHEN MONTH(date_creation) = MONTH(CURDATE()) AND YEAR(date_creation) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as ce_mois
+FROM contacts;
+
+-- --------------------------------------------------------
+
+--
+-- Procédures stockées
+--
+
+DELIMITER $$
+
+--
+-- Procédure pour nettoyer les anciennes sessions
+--
+CREATE PROCEDURE `nettoyer_sessions`()
+BEGIN
+    DELETE FROM sessions_admin 
+    WHERE derniere_activite < DATE_SUB(NOW(), INTERVAL 30 DAY);
+END$$
+
+--
+-- Procédure pour nettoyer les anciens logs
+--
+CREATE PROCEDURE `nettoyer_logs`()
+BEGIN
+    DELETE FROM logs_activite 
+    WHERE date_creation < DATE_SUB(NOW(), INTERVAL 90 DAY);
+END$$
+
+--
+-- Procédure pour calculer les statistiques quotidiennes
+--
+CREATE PROCEDURE `calculer_stats_quotidiennes`(IN date_stat DATE)
+BEGIN
+    -- Statistiques des devis
+    INSERT INTO statistiques (date_stat, type, valeur, donnees_json) 
+    SELECT 
+        date_stat,
+        'devis_total',
+        COUNT(*),
+        JSON_OBJECT(
+            'nouveaux', SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END),
+            'en_cours', SUM(CASE WHEN statut = 'en_cours' THEN 1 ELSE 0 END),
+            'termines', SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END),
+            'montant_total', COALESCE(SUM(montant_final), 0)
+        )
+    FROM devis 
+    WHERE DATE(date_creation) = date_stat
+    ON DUPLICATE KEY UPDATE 
+        valeur = VALUES(valeur),
+        donnees_json = VALUES(donnees_json);
+    
+    -- Statistiques des contacts
+    INSERT INTO statistiques (date_stat, type, valeur, donnees_json) 
+    SELECT 
+        date_stat,
+        'contacts_total',
+        COUNT(*),
+        JSON_OBJECT(
+            'nouveaux', SUM(CASE WHEN statut = 'nouveau' THEN 1 ELSE 0 END),
+            'lus', SUM(CASE WHEN statut = 'lu' THEN 1 ELSE 0 END),
+            'repondus', SUM(CASE WHEN statut = 'repondu' THEN 1 ELSE 0 END)
+        )
+    FROM contacts 
+    WHERE DATE(date_creation) = date_stat
+    ON DUPLICATE KEY UPDATE 
+        valeur = VALUES(valeur),
+        donnees_json = VALUES(donnees_json);
+END$$
+
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Triggers
+--
+
+--
+-- Trigger pour mettre à jour les statistiques clients
+--
+DELIMITER $$
+CREATE TRIGGER `update_client_stats` AFTER UPDATE ON `devis`
+FOR EACH ROW
+BEGIN
+    IF NEW.statut = 'termine' AND OLD.statut != 'termine' THEN
+        -- Mettre à jour ou créer le client
+        INSERT INTO clients (nom, email, telephone, entreprise, date_premier_contact, nb_projets, ca_total)
+        VALUES (NEW.nom, NEW.email, NEW.telephone, NEW.entreprise, NEW.date_creation, 1, COALESCE(NEW.montant_final, 0))
+        ON DUPLICATE KEY UPDATE
+            nb_projets = nb_projets + 1,
+            ca_total = ca_total + COALESCE(NEW.montant_final, 0),
+            date_dernier_contact = NOW(),
+            statut = 'client';
+    END IF;
+END$$
+DELIMITER ;
+
+--
+-- Trigger pour générer automatiquement les numéros
+--
+DELIMITER $$
+CREATE TRIGGER `generate_devis_number` BEFORE INSERT ON `devis`
+FOR EACH ROW
+BEGIN
+    IF NEW.numero_devis IS NULL OR NEW.numero_devis = '' THEN
+        SET @count = (SELECT COUNT(*) FROM devis WHERE YEAR(date_creation) = YEAR(NOW()) AND MONTH(date_creation) = MONTH(NOW())) + 1;
+        SET NEW.numero_devis = CONCAT('DEV', YEAR(NOW()), LPAD(MONTH(NOW()), 2, '0'), LPAD(@count, 4, '0'));
+    END IF;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE TRIGGER `generate_contact_number` BEFORE INSERT ON `contacts`
+FOR EACH ROW
+BEGIN
+    IF NEW.numero_contact IS NULL OR NEW.numero_contact = '' THEN
+        SET @count = (SELECT COUNT(*) FROM contacts WHERE YEAR(date_creation) = YEAR(NOW()) AND MONTH(date_creation) = MONTH(NOW())) + 1;
+        SET NEW.numero_contact = CONCAT('CNT', YEAR(NOW()), LPAD(MONTH(NOW()), 2, '0'), LPAD(@count, 4, '0'));
+    END IF;
+END$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Index pour optimiser les performances
+--
+
+-- Index composites pour les requêtes fréquentes
+CREATE INDEX `idx_devis_statut_date` ON `devis` (`statut`, `date_creation`);
+CREATE INDEX `idx_devis_service_statut` ON `devis` (`service`, `statut`);
+CREATE INDEX `idx_contacts_statut_date` ON `contacts` (`statut`, `date_creation`);
+CREATE INDEX `idx_logs_user_date` ON `logs_activite` (`user_id`, `date_creation`);
+
+-- Index pour les recherches textuelles
+CREATE FULLTEXT INDEX `idx_devis_search` ON `devis` (`nom`, `email`, `entreprise`, `description`);
+CREATE FULLTEXT INDEX `idx_contacts_search` ON `contacts` (`nom`, `email`, `sujet`, `message`);
+
+-- --------------------------------------------------------
+
+--
+-- Événements programmés pour la maintenance
+--
+
+SET GLOBAL event_scheduler = ON;
+
+-- Nettoyage automatique des sessions expirées (quotidien)
+CREATE EVENT IF NOT EXISTS `ev_nettoyer_sessions`
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_TIMESTAMP
+DO
+  CALL nettoyer_sessions();
+
+-- Nettoyage automatique des anciens logs (hebdomadaire)
+CREATE EVENT IF NOT EXISTS `ev_nettoyer_logs`
+ON SCHEDULE EVERY 1 WEEK
+STARTS CURRENT_TIMESTAMP
+DO
+  CALL nettoyer_logs();
+
+-- Calcul des statistiques quotidiennes (quotidien à minuit)
+CREATE EVENT IF NOT EXISTS `ev_stats_quotidiennes`
+ON SCHEDULE EVERY 1 DAY
+STARTS (CURRENT_DATE + INTERVAL 1 DAY)
+DO
+  CALL calculer_stats_quotidiennes(CURDATE() - INTERVAL 1 DAY);
+
+-- --------------------------------------------------------
 
 COMMIT;
 
--- --------------------------------------------------------
--- Index et optimisations supplémentaires
--- --------------------------------------------------------
-
--- Index pour améliorer les performances
-CREATE INDEX idx_devis_service_statut ON devis(service, statut);
-CREATE INDEX idx_contacts_date_statut ON contacts(date_creation, statut);
-CREATE INDEX idx_portfolio_service_featured ON portfolio(service_id, featured);
-CREATE INDEX idx_sous_services_service_actif ON sous_services(service_id, actif);
-
--- Vue pour les statistiques rapides
-CREATE VIEW vue_statistiques AS
-SELECT 
-    (SELECT COUNT(*) FROM devis) as total_devis,
-    (SELECT COUNT(*) FROM devis WHERE statut = 'nouveau') as devis_nouveaux,
-    (SELECT COUNT(*) FROM devis WHERE statut = 'en_cours') as devis_en_cours,
-    (SELECT COUNT(*) FROM devis WHERE statut = 'termine') as devis_termines,
-    (SELECT COUNT(*) FROM contacts) as total_contacts,
-    (SELECT COUNT(*) FROM contacts WHERE statut = 'nouveau') as contacts_nouveaux,
-    (SELECT COUNT(*) FROM newsletter WHERE statut = 'actif') as abonnes_newsletter,
-    (SELECT COUNT(*) FROM portfolio WHERE actif = 1) as projets_portfolio;
-
--- Procédure stockée pour nettoyer les anciens logs
-DELIMITER //
-CREATE PROCEDURE CleanOldLogs()
-BEGIN
-    DELETE FROM logs_activite WHERE date_creation < DATE_SUB(NOW(), INTERVAL 6 MONTH);
-END //
-DELIMITER ;
-
--- Trigger pour mettre à jour automatiquement la date de modification
-DELIMITER //
-CREATE TRIGGER update_devis_modification 
-    BEFORE UPDATE ON devis 
-    FOR EACH ROW 
-BEGIN
-    SET NEW.date_modification = CURRENT_TIMESTAMP;
-END //
-DELIMITER ;
-
--- Fonction pour générer un numéro de devis unique
-DELIMITER //
-CREATE FUNCTION GenerateDevisNumber() 
-RETURNS VARCHAR(20)
-READS SQL DATA
-DETERMINISTIC
-BEGIN
-    DECLARE next_number INT;
-    DECLARE year_part VARCHAR(4);
-    DECLARE number_part VARCHAR(4);
-    
-    SET year_part = YEAR(CURDATE());
-    
-    SELECT COALESCE(MAX(CAST(SUBSTRING(numero_devis, -4) AS UNSIGNED)), 0) + 1 
-    INTO next_number 
-    FROM devis 
-    WHERE numero_devis LIKE CONCAT('DAC-', year_part, '-%');
-    
-    SET number_part = LPAD(next_number, 4, '0');
-    
-    RETURN CONCAT('DAC-', year_part, '-', number_part);
-END //
-DELIMITER ;
-
--- --------------------------------------------------------
--- Données de test supplémentaires pour le développement
--- --------------------------------------------------------
-
--- Plus de témoignages pour les tests
-INSERT INTO `temoignages` (`nom_client`, `entreprise`, `poste`, `temoignage`, `note`, `service_concerne`, `approuve`, `featured`, `actif`) VALUES
-('Dr. Amina Hassan', 'Clinique Moderne', 'Directrice Médicale', 'La brochure médicale conçue par DAC est parfaite. Design professionnel et informations claires pour nos patients.', 5, 'Conception Graphique', 1, 0, 1),
-('Michel Owona', 'Garage Auto Plus', 'Propriétaire', 'Excellent travail sur notre signalétique extérieure. Bâches de qualité et installation impeccable.', 4, 'Imprimerie', 1, 0, 1),
-('Sandrine Biya', 'École Internationale', 'Directrice Communication', 'La vidéo de présentation de notre école a été un succès total. Parents et élèves ont adoré !', 5, 'Conception Multimédia', 1, 0, 1);
-
--- Paramètres additionnels
-INSERT INTO `parametres` (`cle`, `valeur`, `type`, `description`, `groupe`) VALUES
-('maintenance_mode', '0', 'boolean', 'Mode maintenance du site', 'system'),
-('max_file_upload', '10', 'number', 'Taille max des fichiers (MB)', 'system'),
-('backup_frequency', 'weekly', 'text', 'Fréquence des sauvegardes', 'system'),
-('currency', 'FCFA', 'text', 'Devise par défaut', 'general'),
-('timezone', 'Africa/Douala', 'text', 'Fuseau horaire', 'general'),
-('working_hours', '{"lundi":"8h-18h","mardi":"8h-18h","mercredi":"8h-18h","jeudi":"8h-18h","vendredi":"8h-18h","samedi":"9h-15h","dimanche":"Fermé"}', 'json', 'Horaires de travail', 'contact');
-
--- --------------------------------------------------------
--- Fin du script
--- --------------------------------------------------------
-
--- Affichage des statistiques finales
-SELECT 'Base de données Divine Art Corporation créée avec succès!' as Message;
-SELECT 
-    (SELECT COUNT(*) FROM services) as 'Services créés',
-    (SELECT COUNT(*) FROM sous_services) as 'Sous-services créés',
-    (SELECT COUNT(*) FROM admin_users) as 'Utilisateurs admin',
-    (SELECT COUNT(*) FROM temoignages) as 'Témoignages',
-    (SELECT COUNT(*) FROM parametres) as 'Paramètres configurés';
+-- Fin du script de création de la base de données
+-- Divine Art Corporation - Version MySQLi

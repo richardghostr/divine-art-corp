@@ -3,6 +3,7 @@ require_once '../config/database.php';
 
 $db = Database::getInstance();
 $conn = $db->getConnection();
+$dbHelper = new DatabaseHelper();
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
@@ -10,16 +11,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $stats = [];
 
 // Nouveaux devis
-$result = $conn->query("SELECT COUNT(*) as count FROM devis WHERE statut = 'nouveau'");
-$stats['nouveaux_devis'] = $result->fetch_assoc()['count'];
+$result = $dbHelper->selectOne("SELECT COUNT(*) as count FROM devis WHERE statut = 'nouveau'");
+$stats['nouveaux_devis'] = $result ? $result['count'] : 0;
 
 // Nouveaux contacts
-$result = $conn->query("SELECT COUNT(*) as count FROM contacts WHERE statut = 'nouveau'");
-$stats['nouveaux_contacts'] = $result->fetch_assoc()['count'];
+$result = $dbHelper->selectOne("SELECT COUNT(*) as count FROM contacts WHERE statut = 'nouveau'");
+$stats['nouveaux_contacts'] = $result ? $result['count'] : 0;
 
 // Projets en cours
-$result = $conn->query("SELECT COUNT(*) as count FROM devis WHERE statut = 'en_cours'");
-$stats['projets_en_cours'] = $result->fetch_assoc()['count'];
+$result = $dbHelper->selectOne("SELECT COUNT(*) as count FROM projets WHERE statut = 'en_cours'");
+$stats['projets_en_cours'] = $result ? $result['count'] : 0;
 
 // Navigation items avec badges dynamiques
 $nav_items = [
@@ -27,7 +28,7 @@ $nav_items = [
         'title' => 'Principal',
         'items' => [
             ['file' => 'index.php', 'icon' => 'fas fa-home', 'text' => 'Dashboard', 'badge' => null],
-            ['file' => 'projects.php', 'icon' => 'fas fa-project-diagram', 'text' => 'Projets', 'badge' => $stats['projets_en_cours'] > 0 ? $stats['projets_en_cours'] : null],
+            ['file' => 'projets.php', 'icon' => 'fas fa-project-diagram', 'text' => 'Projets', 'badge' => $stats['projets_en_cours'] > 0 ? $stats['projets_en_cours'] : null],
             ['file' => 'clients.php', 'icon' => 'fas fa-users', 'text' => 'Clients', 'badge' => null],
             ['file' => 'devis.php', 'icon' => 'fas fa-file-invoice', 'text' => 'Devis', 'badge' => $stats['nouveaux_devis'] > 0 ? $stats['nouveaux_devis'] : null]
         ]
@@ -52,20 +53,25 @@ $nav_items = [
     ]
 ];
 
-// Calcul de l'utilisation du stockage
-$storage_used = 65; // Simulation - à remplacer par une vraie mesure
-$storage_used_gb = 6.5;
-$storage_total_gb = 10;
+// Calcul de l'utilisation du stockage (simulation)
+$storage_query = "SELECT SUM(taille) as total_size FROM fichiers";
+$storage_result = $dbHelper->selectOne($storage_query);
+$storage_used_bytes = $storage_result ? $storage_result['total_size'] : 0;
+
+// Conversion en GB et calcul du pourcentage
+$storage_total_gb = 10; // Limite de stockage en GB
+$storage_used_gb = round($storage_used_bytes / (1024 * 1024 * 1024), 2);
+$storage_used_percent = min(100, round(($storage_used_gb / $storage_total_gb) * 100));
+
+// Si pas de données, utiliser des valeurs par défaut pour la démo
+if ($storage_used_bytes == 0) {
+    $storage_used_gb = 6.5;
+    $storage_used_percent = 65;
+}
 ?>
 
 <aside class="admin-sidebar">
-    <div class="sidebar-header">
-        <div class="logo">
-            <img src="../assets/images/logo.png" alt="Divine Art Corporation">
-            <span>DAC Admin</span>
-        </div>
-    </div>
-    
+  
     <nav class="sidebar-nav">
         <?php foreach ($nav_items as $section_key => $section): ?>
             <div class="nav-section">
@@ -89,29 +95,6 @@ $storage_total_gb = 10;
     </nav>
     
     <div class="sidebar-footer">
-        <div class="storage-info">
-            <div class="storage-header">
-                <i class="fas fa-hdd"></i>
-                <span>Stockage</span>
-            </div>
-            <div class="storage-bar">
-                <div class="storage-progress" style="width: <?php echo $storage_used; ?>%"></div>
-            </div>
-            <div class="storage-text">
-                <?php echo $storage_used; ?>% utilisé (<?php echo $storage_used_gb; ?> GB / <?php echo $storage_total_gb; ?> GB)
-            </div>
-        </div>
-        
-        <div class="admin-info">
-            <div class="admin-avatar">
-                <i class="fas fa-user-circle"></i>
-            </div>
-            <div class="admin-details">
-                <div class="admin-name"><?php echo htmlspecialchars($_SESSION['admin_name'] ?? 'Admin'); ?></div>
-                <div class="admin-role">Administrateur</div>
-            </div>
-        </div>
-        
         <a href="logout.php" class="logout-btn" onclick="return confirm('Êtes-vous sûr de vouloir vous déconnecter ?')">
             <i class="fas fa-sign-out-alt"></i>
             <span>Déconnexion</span>
@@ -120,7 +103,7 @@ $storage_total_gb = 10;
 </aside>
 
 <script>
-// Auto-refresh des badges toutes les 30 secondes
+// Auto-refresh des badges toutes les 60 secondes
 setInterval(function() {
     fetch('ajax/get_sidebar_stats.php')
         .then(response => response.json())
@@ -129,11 +112,11 @@ setInterval(function() {
                 // Mettre à jour les badges
                 updateBadge('devis.php', data.stats.nouveaux_devis);
                 updateBadge('contacts.php', data.stats.nouveaux_contacts);
-                updateBadge('projects.php', data.stats.projets_en_cours);
+                updateBadge('projets.php', data.stats.projets_en_cours);
             }
         })
         .catch(error => console.error('Erreur mise à jour sidebar:', error));
-}, 30000);
+}, 60000);
 
 function updateBadge(page, count) {
     const link = document.querySelector(`a[href="${page}"]`);
