@@ -152,7 +152,8 @@ require_once 'sidebar.php';
 ?>
 
 
-
+<main class="admin-main">
+    
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">
@@ -606,7 +607,8 @@ require_once 'sidebar.php';
             </div>
         </div>
     </div>
-</div>
+</div></main>
+
 
 <!-- JavaScript pour les interactions -->
 <script>
@@ -702,4 +704,206 @@ function confirmDeleteService(id, nom) {
 $conn->close();
 ?>
 
-<?php include 'footer.php'; ?>
+
+<style>/* ========================================
+   STYLES SPÉCIFIQUES POUR LA GESTION DES SERVICES D'IMPRIMERIE
+   ======================================== */
+
+/* Styles spécifiques pour les cartes de statistiques */
+.card.border-left-primary { border-left: 0.25rem solid var(--admin-info); }
+.card.border-left-success { border-left: 0.25rem solid var(--admin-success); }
+.card.border-left-info { border-left: 0.25rem solid var(--admin-accent); }
+.card.border-left-warning { border-left: 0.25rem solid var(--admin-warning); }
+
+/* Styles pour les cartes de services */
+.card.border-left-primary .card-header { 
+    background-color: rgba(52, 152, 219, 0.1);
+    border-bottom: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+.card.border-left-primary .card-body { 
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* Styles pour la pagination */
+.pagination .page-item .page-link {
+    color: var(--admin-text-primary);
+    border: 1px solid var(--admin-border);
+    margin: 0 var(--admin-space-xs);
+    border-radius: var(--admin-radius-md);
+    transition: var(--admin-transition);
+}
+
+.pagination .page-item.active .page-link {
+    background: var(--admin-accent);
+    border-color: var(--admin-accent);
+    color: white;
+}
+
+.pagination .page-item:not(.active) .page-link:hover {
+    background: var(--admin-border-light);
+}
+
+/* Styles pour les badges de statut */
+.badge {
+    font-weight: 500;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--admin-radius-sm);
+}
+
+.badge-secondary { background: rgba(108, 117, 125, 0.1); color: var(--admin-text-secondary); }
+.badge-primary { background: rgba(52, 152, 219, 0.1); color: var(--admin-info); }
+.badge-success { background: rgba(39, 174, 96, 0.1); color: var(--admin-success); }
+.badge-warning { background: rgba(243, 156, 18, 0.1); color: var(--admin-warning); }
+.badge-danger { background: rgba(231, 76, 60, 0.1); color: var(--admin-danger); }
+
+/* Styles pour les barres de progression */
+.progress {
+    height: 0.75rem;
+    background-color: var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+}
+
+.progress-bar {
+    background-color: var(--admin-accent);
+}
+
+.bg-secondary { background-color: rgba(108, 117, 125, 0.7) !important; }
+.bg-primary { background-color: var(--admin-info) !important; }
+.bg-success { background-color: var(--admin-success) !important; }
+.bg-warning { background-color: var(--admin-warning) !important; }
+.bg-danger { background-color: var(--admin-danger) !important; }
+
+/* Styles pour les boutons d'action */
+.btn-group .btn-sm {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+}
+
+/* Styles pour le tableau des projets */
+#projetsTable thead {
+    background-color: var(--admin-bg);
+}
+
+#projetsTable th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.75rem;
+    color: var(--admin-text-secondary);
+}
+
+#projetsTable tr:hover {
+    background-color: var(--admin-border-light);
+}
+
+/* Styles pour les cartes de service */
+.card.border-left-primary {
+    transition: var(--admin-transition);
+    box-shadow: var(--admin-shadow-sm);
+}
+
+.card.border-left-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--admin-shadow-md);
+}
+
+/* Styles pour les formulaires de filtre */
+.filter-actions .form-control {
+    background: var(--admin-card-bg);
+    border-color: var(--admin-border);
+    color: var(--admin-text-primary);
+}
+
+.filter-actions .btn {
+    background: var(--admin-card-bg);
+    border-color: var(--admin-border);
+    color: var(--admin-text-primary);
+}
+
+.filter-actions .btn:hover {
+    background: var(--admin-border-light);
+}
+
+/* Styles pour les modals */
+.modal-content {
+    background: var(--admin-card-bg);
+    border-radius: var(--admin-radius-lg);
+    border: none;
+    box-shadow: var(--admin-shadow-lg);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--admin-border-light);
+    padding: var(--admin-space-lg) var(--admin-space-xl);
+}
+
+.modal-title {
+    font-weight: 600;
+    color: var(--admin-text-primary);
+}
+
+.modal-body {
+    padding: var(--admin-space-xl);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--admin-border-light);
+    padding: var(--admin-space-lg) var(--admin-space-xl);
+}
+
+/* Styles pour le range de progression */
+.custom-range::-webkit-slider-thumb {
+    background: var(--admin-accent);
+}
+
+.custom-range::-moz-range-thumb {
+    background: var(--admin-accent);
+}
+
+/* Styles responsives supplémentaires */
+@media (max-width: 768px) {
+    .stats-grid .col-xl-3 {
+        margin-bottom: var(--admin-space-lg);
+    }
+    
+    .card-footer .btn {
+        width: 100%;
+        margin-bottom: var(--admin-space-sm);
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .welcome-avatar {
+        margin-bottom: var(--admin-space-md);
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .section-actions {
+        margin-top: var(--admin-space-md);
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: var(--admin-space-xs);
+    }
+}
+
+/* Animation pour les modals */
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal.fade .modal-dialog {
+    animation: modalFadeIn 0.3s ease-out;
+}</style>

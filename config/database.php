@@ -323,4 +323,17 @@ function generatePassword($length = 12) {
 
 // Connexion à la base de données
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+
+
+
+
+
+
+
+
+
+
+
 ?>
+

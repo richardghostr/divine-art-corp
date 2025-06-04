@@ -11,21 +11,22 @@ $auth->requireAuth();
 $currentAdmin = $auth->getCurrentUser();
 
 // Fonction pour calculer la progression
-function calculateProgress($start_date, $end_date) {
+function calculateProgress($start_date, $end_date)
+{
     if (!$start_date || !$end_date) return 0;
-    
+
     $start = new DateTime($start_date);
     $end = new DateTime($end_date);
     $now = new DateTime();
-    
+
     if ($now < $start) return 0;
     if ($now > $end) return 100;
-    
+
     $total = $end->diff($start)->days;
     $elapsed = $now->diff($start)->days;
-    
+
     if ($total <= 0) return 100;
-    
+
     $progress = ($elapsed / $total) * 100;
     return min(100, max(0, round($progress)));
 }
@@ -159,7 +160,6 @@ try {
             ];
         }
     }
-
 } catch (Exception $e) {
     error_log("Dashboard error: " . $e->getMessage());
     // Valeurs par défaut en cas d'erreur
@@ -210,7 +210,7 @@ require_once 'sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-label">Projets Actifs</h3>
-                <!-- <p class="stat-value" data-count="<?= $stats['active_projects'] ?>">0</p> -->
+                <p class="stat-value" data-count="<?= htmlspecialchars($stats['revenue'] ?? 0) ?>">0</p>
             </div>
             <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
@@ -225,7 +225,8 @@ require_once 'sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-label">Projets Terminés</h3>
-                <!-- <p class="stat-value" data-count="<?= $stats['completed_projects'] ?>">0</p> -->
+
+                <p class="stat-value" data-count="<?= htmlspecialchars($stats['completed_projects'] ?? 0) ?>">0</p>
             </div>
             <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
@@ -240,12 +241,20 @@ require_once 'sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-label">Devis en Attente</h3>
-                <!-- <p class="stat-value" data-count="<?= $stats['pending_quotes'] ?>">0</p> -->
+                <!-- Utilisation de ?? pour valeur par défaut -->
+                <p class="stat-value" data-count="<?= htmlspecialchars($stats['pending_quotes'] ?? 0) ?>">0</p>
             </div>
-            <!-- <div class="stat-trend <?= $stats['pending_quotes'] > 5 ? 'negative' : 'positive' ?>">
-                <i class="fas fa-arrow-<?= $stats['pending_quotes'] > 5 ? 'up' : 'down' ?>"></i>
-                <span class="trend-value"><?= $stats['pending_quotes'] > 5 ? '+3%' : '-3%' ?></span>
-            </div> -->
+            <?php
+            // Récupération sécurisée de la valeur
+            $pendingCount = $stats['pending_quotes'] ?? 0;
+            $trendClass = $pendingCount > 5 ? 'negative' : 'positive';
+            $arrowDirection = $pendingCount > 5 ? 'up' : 'down';
+            $trendValue = $pendingCount > 5 ? '+3%' : '-3%';
+            ?>
+            <div class="stat-trend <?= $trendClass ?>">
+                <i class="fas fa-arrow-<?= $arrowDirection ?>"></i>
+                <span class="trend-value"><?= $trendValue ?></span>
+            </div>
         </div>
 
         <!-- Chiffre d'Affaires -->
@@ -255,7 +264,8 @@ require_once 'sidebar.php';
             </div>
             <div class="stat-content">
                 <h3 class="stat-label">Chiffre d'Affaires</h3>
-                <!-- <p class="stat-value" data-count="<?= $stats['revenue'] ?>">0</p> -->
+                <p class="stat-value" data-count="<?= htmlspecialchars($stats['revenue'] ?? 0) ?>">0</p>
+
             </div>
             <div class="stat-trend positive">
                 <i class="fas fa-arrow-up"></i>
@@ -281,7 +291,7 @@ require_once 'sidebar.php';
                 <?php else: ?>
                     <div class="project-list">
                         <?php foreach ($active_projects as $project): ?>
-                            <?php 
+                            <?php
                             $progress = calculateProgress($project['date_debut'], $project['date_fin_prevue']);
                             $days_remaining = (new DateTime($project['date_fin_prevue']))->diff(new DateTime())->days;
                             ?>
@@ -352,8 +362,8 @@ require_once 'sidebar.php';
                                     </small>
                                 </div>
                                 <div class="activity-actions">
-                                    <a href="<?= htmlspecialchars($activity['url_path']) . $activity['id'] ?>" 
-                                       class="btn btn-sm btn-outline">
+                                    <a href="<?= htmlspecialchars($activity['url_path']) . $activity['id'] ?>"
+                                        class="btn btn-sm btn-outline">
                                         <i class="fas fa-arrow-right"></i>
                                     </a>
                                 </div>
@@ -389,7 +399,7 @@ require_once 'sidebar.php';
                                 <div class="client-details">
                                     <h4><?= htmlspecialchars($client['entreprise'] ?: $client['nom']) ?></h4>
                                     <p>
-                                        <?= $client['project_count'] ?> projet(s) | 
+                                        <?= $client['project_count'] ?> projet(s) |
                                         <?= number_format($client['total_spent'], 0, ',', ' ') ?> FCFA
                                     </p>
                                     <div class="client-status">
@@ -430,7 +440,7 @@ require_once 'sidebar.php';
                             <?php
                             $deadline_date = new DateTime($deadline['date_fin_prevue']);
                             $days_remaining = $deadline['days_remaining'];
-                            
+
                             if ($days_remaining <= 3) {
                                 $priority = 'urgent';
                                 $priority_text = 'Urgent';
@@ -484,7 +494,7 @@ require_once 'sidebar.php';
 </main>
 
 <!-- Modale Nouveau Projet -->
-<div id="new-project-modal" class="modal" style="display:none;">
+<div id="new-project-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Nouveau Projet</h3>
@@ -493,92 +503,29 @@ require_once 'sidebar.php';
             </button>
         </div>
         <div class="modal-body">
-            <form id="new-project-form" action="projets.php" method="POST">
-                <div class="form-group">
-                    <label for="project-name">Nom du Projet</label>
-                    <input type="text" id="project-name" name="name" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="project-client">Client</label>
-                    <select id="project-client" name="client_id" class="form-control" required>
-                        <option value="">Sélectionner un client</option>
-                        <?php
-                        $clients = $db->select("SELECT id, nom, entreprise FROM clients ORDER BY nom");
-                        if ($clients) {
-                            foreach ($clients as $client) {
-                                echo '<option value="' . $client['id'] . '">' 
-                                    . htmlspecialchars($client['entreprise'] ?: $client['nom']) 
-                                    . '</option>';
-                            }
-                        }
-                        ?>
-                        <option value="new">+ Nouveau Client</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="project-devis">Devis associé</label>
-                    <select id="project-devis" name="devis_id" class="form-control" required>
-                        <option value="">Sélectionner un devis</option>
-                        <?php
-                        $devis_list = $db->select("SELECT id, numero_devis, description FROM devis WHERE statut IN ('nouveau', 'en_cours') ORDER BY date_creation DESC");
-                        if ($devis_list) {
-                            foreach ($devis_list as $devis) {
-                                echo '<option value="' . $devis['id'] . '">' 
-                                    . htmlspecialchars($devis['numero_devis'] . ' - ' . $devis['description']) 
-                                    . '</option>';
-                            }
-                        }
-                        ?>
-                        <option value="new">+ Nouveau Devis</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="project-service">Service</label>
-                    <select id="project-service" name="service" class="form-control" required>
-                        <option value="">Sélectionner un service</option>
-                        <?php
-                        $services = $db->select("SELECT slug, nom FROM services WHERE actif = 1 ORDER BY ordre");
-                        if ($services) {
-                            foreach ($services as $service) {
-                                echo '<option value="' . $service['slug'] . '">' 
-                                    . htmlspecialchars($service['nom']) 
-                                    . '</option>';
-                            }
-                        }
-                        ?>
-                    </select>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="project-start">Date de Début</label>
-                            <input type="date" id="project-start" name="start_date" class="form-control" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="project-end">Date de Fin</label>
-                            <input type="date" id="project-end" name="end_date" class="form-control" required>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="project-budget">Budget (FCFA)</label>
-                    <input type="number" id="project-budget" name="budget" class="form-control" min="0" step="1">
-                </div>
-                
-                <div class="form-group">
-                    <label for="project-description">Description</label>
-                    <textarea id="project-description" name="description" class="form-control" rows="3"></textarea>
-                </div>
-                
-                <input type="hidden" name="action" value="create_project">
-            </form>
+            <!-- Dans la modale -->
+<form id="new-project-form">
+    <!-- ... autres champs ... -->
+    <input type="hidden" name="action" value="create_project">
+    
+    <div class="form-group">
+        <label for="project-name">Nom du Projet</label>
+        <input type="text" id="project-name" name="name" class="form-control" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="project-service">Service</label>
+        <select id="project-service" name="service" class="form-control" required>
+            <!-- options -->
+        </select>
+    </div>
+    
+    <!-- Ajoutez name="budget" -->
+    <input type="number" id="project-budget" name="budget" class="form-control" min="0" step="1">
+    
+    <!-- Ajoutez name="description" -->
+    <textarea id="project-description" name="description" class="form-control" rows="3"></textarea>
+</form>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-outline" onclick="closeModal('new-project-modal')">Annuler</button>
@@ -590,139 +537,177 @@ require_once 'sidebar.php';
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Animation des compteurs
-document.addEventListener('DOMContentLoaded', function() {
-    // Animer les valeurs des statistiques
-    const counters = document.querySelectorAll('.stat-value[data-count]');
-    const animationDuration = 2000;
-    const frameDuration = 1000 / 60;
-    
-    counters.forEach(counter => {
-        const target = parseInt(counter.getAttribute('data-count'));
-        const start = 0;
-        const frames = Math.floor(animationDuration / frameDuration);
-        const increment = (target - start) / frames;
-        let current = start;
-        
-        const animate = () => {
-            current += increment;
-            if (current >= target) {
-                counter.textContent = target.toLocaleString('fr-FR');
-            } else {
-                counter.textContent = Math.floor(current).toLocaleString('fr-FR');
-                requestAnimationFrame(animate);
-            }
-        };
-        
-        animate();
-    });
-    
-    // Initialiser le graphique de revenus
-    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-    const revenueChart = new Chart(revenueCtx, {
-        type: 'line',
-        data: {
-            labels: <?= json_encode(array_map(function($item) {
-                $date = DateTime::createFromFormat('Y-m', $item['month']);
-                return $date ? $date->format('M Y') : $item['month'];
-            }, $revenue_data)) ?>,
-            datasets: [{
-                label: 'Chiffre d\'Affaires (FCFA)',
-                data: <?= json_encode(array_column($revenue_data, 'amount')) ?>,
-                backgroundColor: 'rgba(231, 76, 60, 0.2)',
-                borderColor: 'rgba(231, 76, 60, 1)',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + context.raw.toLocaleString('fr-FR') + ' FCFA';
-                        }
-                    }
+    // Animation des compteurs
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animer les valeurs des statistiques
+        const counters = document.querySelectorAll('.stat-value[data-count]');
+        const animationDuration = 2000;
+        const frameDuration = 1000 / 60;
+
+        counters.forEach(counter => {
+            const target = parseInt(counter.getAttribute('data-count'));
+            const start = 0;
+            const frames = Math.floor(animationDuration / frameDuration);
+            const increment = (target - start) / frames;
+            let current = start;
+
+            const animate = () => {
+                current += increment;
+                if (current >= target) {
+                    counter.textContent = target.toLocaleString('fr-FR');
+                } else {
+                    counter.textContent = Math.floor(current).toLocaleString('fr-FR');
+                    requestAnimationFrame(animate);
                 }
+            };
+
+            animate();
+        });
+
+        // Initialiser le graphique de revenus
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        const revenueChart = new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: <?= json_encode(array_map(function ($item) {
+                            $date = DateTime::createFromFormat('Y-m', $item['month']);
+                            return $date ? $date->format('M Y') : $item['month'];
+                        }, $revenue_data)) ?>,
+                datasets: [{
+                    label: 'Chiffre d\'Affaires (FCFA)',
+                    data: <?= json_encode(array_column($revenue_data, 'amount')) ?>,
+                    backgroundColor: 'rgba(231, 76, 60, 0.2)',
+                    borderColor: 'rgba(231, 76, 60, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return value.toLocaleString('fr-FR') + ' FCFA';
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.raw.toLocaleString('fr-FR') + ' FCFA';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('fr-FR') + ' FCFA';
+                            }
                         }
                     }
                 }
-            }
-        }
-    });
-    
-    // Gestion des onglets
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tabType = this.getAttribute('data-tab') || this.getAttribute('data-period');
-            const parent = this.closest('.tabs');
-            
-            // Mettre à jour l'état actif des onglets
-            parent.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Filtrer les éléments si nécessaire
-            if (this.hasAttribute('data-tab')) {
-                const container = this.closest('.dashboard-card').querySelector('.activity-list');
-                if (container) {
-                    container.querySelectorAll('.activity-item').forEach(item => {
-                        const itemType = item.getAttribute('data-type');
-                        if (tabType === 'all' || itemType === tabType) {
-                            item.style.display = 'flex';
-                        } else {
-                            item.style.display = 'none';
-                        }
-                    });
-                }
-            }
-            
-            // Mettre à jour le graphique si on change la période
-            if (this.hasAttribute('data-period')) {
-                // Ici vous pourriez faire un appel AJAX pour charger les données de la période sélectionnée
-                console.log('Chargement des données pour la période:', tabType);
             }
         });
+
+        // Gestion des onglets
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabType = this.getAttribute('data-tab') || this.getAttribute('data-period');
+                const parent = this.closest('.tabs');
+
+                // Mettre à jour l'état actif des onglets
+                parent.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // Filtrer les éléments si nécessaire
+                if (this.hasAttribute('data-tab')) {
+                    const container = this.closest('.dashboard-card').querySelector('.activity-list');
+                    if (container) {
+                        container.querySelectorAll('.activity-item').forEach(item => {
+                            const itemType = item.getAttribute('data-type');
+                            if (tabType === 'all' || itemType === tabType) {
+                                item.style.display = 'flex';
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        });
+                    }
+                }
+
+                // Mettre à jour le graphique si on change la période
+                if (this.hasAttribute('data-period')) {
+                    // Ici vous pourriez faire un appel AJAX pour charger les données de la période sélectionnée
+                    console.log('Chargement des données pour la période:', tabType);
+                }
+            });
+        });
     });
-});
 
-// Gestion des modales
-function openModal(modalId) {
-    document.getElementById(modalId).style.display = 'block';
-}
+    // Gestion des modales
+    function openModal(modalId) {
+        document.getElementById(modalId).style.display = 'block';
+    }
 
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
 
-function openCalendar() {
-    // Implémenter l'ouverture du calendrier
-    alert('Fonctionnalité de calendrier en développement');
-}
+    function openCalendar() {
+        // Implémenter l'ouverture du calendrier
+        alert('Fonctionnalité de calendrier en développement');
+    }
 
-// Gestion du formulaire de nouveau projet
-document.getElementById('project-client').addEventListener('change', function() {
-    if (this.value === 'new') {
-        // Rediriger vers la page de création de client
-        window.location.href = 'clients.php?action=new&redirect=new_project';
+    // Gestion du formulaire de nouveau projet
+    document.getElementById('project-client').addEventListener('change', function() {
+        if (this.value === 'new') {
+            // Rediriger vers la page de création de client
+            window.location.href = 'clients.php?action=new&redirect=new_project';
+        }
+    });
+
+    document.getElementById('project-devis').addEventListener('change', function() {
+        if (this.value === 'new') {
+            // Rediriger vers la page de création de devis
+            window.location.href = 'devis.php?action=new&redirect=new_project';
+        }
+    });
+</script>
+<script>
+// Gestion de la création de projet
+document.getElementById('new-project-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('projets.php?action=create_project', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Fermer la modale et recharger la page
+            closeModal('new-project-modal');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (result.error || 'Échec de la création du projet'));
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        alert('Une erreur réseau est survenue');
     }
 });
 
-document.getElementById('project-devis').addEventListener('change', function() {
-    if (this.value === 'new') {
-        // Rediriger vers la page de création de devis
-        window.location.href = 'devis.php?action=new&redirect=new_project';
+// Pré-remplir le devis si ID passé dans l'URL
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const devisId = urlParams.get('devis_id');
+    
+    if (devisId) {
+        document.getElementById('project-devis').value = devisId;
     }
 });
 </script>

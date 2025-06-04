@@ -29,8 +29,8 @@ $stats_query = "SELECT
     COUNT(*) as total_projets,
     SUM(CASE WHEN d.statut = 'termine' THEN 1 ELSE 0 END) as projets_termines,
     SUM(CASE WHEN d.statut = 'en_cours' THEN 1 ELSE 0 END) as projets_en_cours,
-    SUM(d.montant_final) as ca_total,
-    AVG(d.montant_final) as montant_moyen
+    COALESCE(SUM(d.montant_final), 0) as ca_total,
+    COALESCE(AVG(d.montant_final), 0) as montant_moyen
 FROM devis d WHERE d.service = 'marketing'";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
@@ -47,9 +47,9 @@ $sous_services_result = mysqli_query($conn, $sous_services_query);
 include 'header.php';
 ?>
 
-<div class="admin-content">
+<div class="admin-main">
     <?php include 'sidebar.php'; ?>
-    
+
     <main class="main-content">
         <div class="content-header">
             <div class="header-left">
@@ -73,7 +73,7 @@ include 'header.php';
                     <i class="fas fa-bullhorn"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['total_projets']); ?></h3>
+                    <h3><?php echo number_format($stats['total_projets'] ?? 0); ?></h3>
                     <p>Projets Marketing</p>
                 </div>
             </div>
@@ -82,7 +82,7 @@ include 'header.php';
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['projets_termines']); ?></h3>
+                    <h3><?php echo number_format($stats['projets_termines'] ?? 0); ?></h3>
                     <p>Projets Terminés</p>
                 </div>
             </div>
@@ -91,7 +91,7 @@ include 'header.php';
                     <i class="fas fa-play-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['projets_en_cours']); ?></h3>
+                    <h3><?php echo number_format($stats['projets_en_cours'] ?? 0); ?></h3>
                     <p>En Cours</p>
                 </div>
             </div>
@@ -100,7 +100,7 @@ include 'header.php';
                     <i class="fas fa-money-bill-wave"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['ca_total'], 0, ',', ' '); ?> FCFA</h3>
+                    <h3><?php echo number_format($stats['ca_total'] ?? 0, 0, ',', ' '); ?> FCFA</h3>
                     <p>Chiffre d'Affaires</p>
                 </div>
             </div>
@@ -259,12 +259,12 @@ include 'header.php';
                         <option value="content-marketing">Content Marketing</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="campaignName">Nom de la campagne</label>
                     <input type="text" id="campaignName" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="campaignClient">Client</label>
                     <select id="campaignClient" required>
@@ -272,17 +272,17 @@ include 'header.php';
                         <!-- Options chargées dynamiquement -->
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="campaignBudget">Budget (FCFA)</label>
                     <input type="number" id="campaignBudget" min="0">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="campaignDescription">Description</label>
                     <textarea id="campaignDescription" rows="4"></textarea>
                 </div>
-                
+
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Créer Campagne
@@ -297,100 +297,419 @@ include 'header.php';
 </div>
 
 <script>
-function showCampaignModal() {
-    document.getElementById('campaignModal').style.display = 'block';
-    loadClients();
-}
+    function showCampaignModal() {
+        document.getElementById('campaignModal').style.display = 'block';
+        loadClients();
+    }
 
-function closeCampaignModal() {
-    document.getElementById('campaignModal').style.display = 'none';
-}
+    function closeCampaignModal() {
+        document.getElementById('campaignModal').style.display = 'none';
+    }
 
-function loadClients() {
-    fetch('../api/get_clients_list.php')
-        .then(response => response.json())
-        .then(clients => {
-            const select = document.getElementById('campaignClient');
-            select.innerHTML = '<option value="">Sélectionner un client</option>';
-            clients.forEach(client => {
-                select.innerHTML += `<option value="${client.id}">${client.nom} - ${client.entreprise || client.email}</option>`;
+    function loadClients() {
+        fetch('../api/get_clients_list.php')
+            .then(response => response.json())
+            .then(clients => {
+                const select = document.getElementById('campaignClient');
+                select.innerHTML = '<option value="">Sélectionner un client</option>';
+                clients.forEach(client => {
+                    select.innerHTML += `<option value="${client.id}">${client.nom} - ${client.entreprise || client.email}</option>`;
+                });
             });
-        });
-}
+    }
 
-function filterProjects() {
-    const filter = document.getElementById('statusFilter').value;
-    const cards = document.querySelectorAll('.project-card');
-    
-    cards.forEach(card => {
-        if (filter === '' || card.dataset.status === filter) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
+    function filterProjects() {
+        const filter = document.getElementById('statusFilter').value;
+        const cards = document.querySelectorAll('.project-card');
 
-function createSocialMediaPlan() {
-    // Logique pour créer un plan social media
-    alert('Fonctionnalité en développement');
-}
-
-function createAdCampaign() {
-    // Logique pour créer une campagne publicitaire
-    alert('Fonctionnalité en développement');
-}
-
-function createSEOAudit() {
-    // Logique pour créer un audit SEO
-    alert('Fonctionnalité en développement');
-}
-
-function createEmailCampaign() {
-    // Logique pour créer une campagne email
-    alert('Fonctionnalité en développement');
-}
-
-function viewProject(id) {
-    window.location.href = `devis.php?id=${id}`;
-}
-
-function manageProject(id) {
-    window.location.href = `projets.php?id=${id}`;
-}
-
-function createProject(devisId) {
-    if (confirm('Créer un projet à partir de ce devis ?')) {
-        fetch('../api/create_project.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({devis_id: devisId})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
+        cards.forEach(card => {
+            if (filter === '' || card.dataset.status === filter) {
+                card.style.display = 'block';
             } else {
-                alert('Erreur lors de la création du projet');
+                card.style.display = 'none';
             }
         });
     }
-}
 
-function contactClient(email) {
-    window.location.href = `mailto:${email}`;
-}
-
-// Gestion des modals
-document.querySelector('.close').onclick = closeCampaignModal;
-
-window.onclick = function(event) {
-    if (event.target.classList.contains('modal')) {
-        event.target.style.display = 'none';
+    function createSocialMediaPlan() {
+        // Logique pour créer un plan social media
+        alert('Fonctionnalité en développement');
     }
-}
+
+    function createAdCampaign() {
+        // Logique pour créer une campagne publicitaire
+        alert('Fonctionnalité en développement');
+    }
+
+    function createSEOAudit() {
+        // Logique pour créer un audit SEO
+        alert('Fonctionnalité en développement');
+    }
+
+    function createEmailCampaign() {
+        // Logique pour créer une campagne email
+        alert('Fonctionnalité en développement');
+    }
+
+    function viewProject(id) {
+        window.location.href = `devis.php?id=${id}`;
+    }
+
+    function manageProject(id) {
+        window.location.href = `projets.php?id=${id}`;
+    }
+
+    function createProject(devisId) {
+        if (confirm('Créer un projet à partir de ce devis ?')) {
+            fetch('../api/create_project.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        devis_id: devisId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Erreur lors de la création du projet');
+                    }
+                });
+        }
+    }
+
+    function contactClient(email) {
+        window.location.href = `mailto:${email}`;
+    }
+
+    // Gestion des modals
+    document.querySelector('.close').onclick = closeCampaignModal;
+
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
 </script>
 
-<?php include 'footer.php'; ?>
+<style>
+    /* ========================================
+   MARKETING PAGE SPECIFIC STYLES
+   ======================================== */
+
+/* Content Header Styles */
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--admin-space-2xl);
+  padding: var(--admin-space-lg);
+  background: var(--admin-card-bg);
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.header-left h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--admin-text-primary);
+  margin-bottom: var(--admin-space-xs);
+}
+
+.header-left p {
+  color: var(--admin-text-secondary);
+  font-size: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--admin-space-md);
+}
+
+/* Services Chart Styles */
+.services-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-space-md);
+}
+
+.service-item {
+  display: flex;
+  align-items: center;
+  gap: var(--admin-space-md);
+  padding: var(--admin-space-sm) 0;
+}
+
+.service-name {
+  min-width: 150px;
+  font-size: 0.875rem;
+  color: var(--admin-text-primary);
+}
+
+.service-bar {
+  flex: 1;
+  height: 10px;
+  background: var(--admin-border-light);
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+}
+
+.service-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--admin-accent) 0%, #c0392b 100%);
+  border-radius: var(--admin-radius-sm);
+}
+
+.service-count {
+  min-width: 30px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--admin-text-primary);
+}
+
+/* Quick Actions Styles */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--admin-space-md);
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--admin-space-lg);
+  background: var(--admin-border-light);
+  border: none;
+  border-radius: var(--admin-radius-lg);
+  cursor: pointer;
+  transition: var(--admin-transition);
+  text-align: center;
+}
+
+.action-btn:hover {
+  background: var(--admin-accent);
+  color: white;
+  transform: translateY(-3px);
+}
+
+.action-btn i {
+  font-size: 1.5rem;
+  margin-bottom: var(--admin-space-sm);
+}
+
+.action-btn span {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Project Details Styles */
+.project-details {
+  padding: var(--admin-space-lg) 0;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: var(--admin-space-sm);
+}
+
+.detail-row .label {
+  min-width: 100px;
+  font-weight: 600;
+  color: var(--admin-text-primary);
+}
+
+.detail-row .value {
+  flex: 1;
+  color: var(--admin-text-secondary);
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: var(--admin-space-md);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--admin-border-light);
+  border-radius: var(--admin-radius-sm);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--admin-info) 0%, #2980b9 100%);
+  border-radius: var(--admin-radius-sm);
+}
+
+.progress-text {
+  font-weight: 600;
+  color: var(--admin-text-primary);
+}
+
+.project-description {
+  margin: var(--admin-space-lg) 0;
+  padding: var(--admin-space-md);
+  background: var(--admin-border-light);
+  border-radius: var(--admin-radius-md);
+  font-size: 0.875rem;
+  color: var(--admin-text-secondary);
+}
+
+/* Section Header Styles */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--admin-space-xl);
+}
+
+.section-filters select {
+  padding: var(--admin-space-sm) var(--admin-space-md);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-card-bg);
+  color: var(--admin-text-primary);
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--admin-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-nouveau {
+  background: rgba(52, 152, 219, 0.1);
+  color: var(--admin-info);
+}
+
+.status-en_cours {
+  background: rgba(243, 156, 18, 0.1);
+  color: var(--admin-warning);
+}
+
+.status-termine {
+  background: rgba(39, 174, 96, 0.1);
+  color: var(--admin-success);
+}
+
+.status-annule {
+  background: rgba(231, 76, 60, 0.1);
+  color: var(--admin-danger);
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--admin-card-bg);
+  width: 90%;
+  max-width: 600px;
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-lg);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--admin-space-lg);
+  border-bottom: 1px solid var(--admin-border-light);
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  color: var(--admin-text-primary);
+}
+
+.modal-header .close {
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--admin-text-secondary);
+}
+
+.modal-header .close:hover {
+  color: var(--admin-text-primary);
+}
+
+.modal-body {
+  padding: var(--admin-space-lg);
+}
+
+.form-group {
+  margin-bottom: var(--admin-space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--admin-space-sm);
+  font-weight: 500;
+  color: var(--admin-text-primary);
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: var(--admin-space-md);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-bg);
+  color: var(--admin-text-primary);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--admin-space-md);
+  justify-content: flex-end;
+  margin-top: var(--admin-space-xl);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .content-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--admin-space-lg);
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--admin-space-md);
+  }
+}
+</style>

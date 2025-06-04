@@ -46,7 +46,7 @@ $sous_services_result = mysqli_query($conn, $sous_services_query);
 include 'header.php';
 ?>
 
-<div class="admin-content">
+<div class="admin-main">
     <?php include 'sidebar.php'; ?>
     
     <main class="main-content">
@@ -72,7 +72,7 @@ include 'header.php';
                     <i class="fas fa-paint-brush"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['total_projets']); ?></h3>
+                    <h3><?php echo number_format($stats['total_projets'] ??0); ?></h3>
                     <p>Projets Graphiques</p>
                 </div>
             </div>
@@ -81,7 +81,7 @@ include 'header.php';
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['projets_termines']); ?></h3>
+                    <h3><?php echo number_format($stats['projets_termines']??0); ?></h3>
                     <p>Designs Terminés</p>
                 </div>
             </div>
@@ -90,7 +90,7 @@ include 'header.php';
                     <i class="fas fa-palette"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['projets_en_cours']); ?></h3>
+                    <h3><?php echo number_format($stats['projets_en_cours']??0); ?></h3>
                     <p>En Création</p>
                 </div>
             </div>
@@ -99,7 +99,9 @@ include 'header.php';
                     <i class="fas fa-money-bill-wave"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo number_format($stats['ca_total'], 0, ',', ' '); ?> FCFA</h3>
+        
+
+                <h3><?php echo isset($stats['ca_total'])? number_format($stats['ca_total'], 0, ',', ' ') : '0.0';?> FCFA</h3>
                     <p>Chiffre d'Affaires</p>
                 </div>
             </div>
@@ -460,4 +462,172 @@ window.onclick = function(event) {
 }
 </script>
 
-<?php include 'footer.php'; ?>
+
+
+<style>
+    /* ======================================== */
+/* AJOUTS SPÉCIFIQUES POUR LA PAGE GRAPHIQUE */
+/* ======================================== */
+
+/* Styles pour les icônes de statistiques */
+.bg-purple {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%) !important;
+}
+
+/* Outils de design */
+.design-tools {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--admin-space-md);
+}
+.content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--admin-space-xl);
+    padding: var(--admin-space-lg);
+    background: var(--admin-card-bg);
+    border-radius: var(--admin-radius-xl);
+    box-shadow: var(--admin-shadow-sm);
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: var(--admin-space-sm);
+  padding: var(--admin-space-sm);
+  background: var(--admin-border-light);
+  border-radius: var(--admin-radius-md);
+  transition: var(--admin-transition);
+}
+
+.tool-item:hover {
+  background: rgba(155, 89, 182, 0.1);
+}
+
+.tool-item i {
+  font-size: 1.25rem;
+  color: var(--admin-accent);
+}
+
+/* Section d'actions rapides */
+.quick-actions-section {
+  background: var(--admin-card-bg);
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-sm);
+  padding: var(--admin-space-xl);
+  margin-bottom: var(--admin-space-2xl);
+}
+
+.quick-actions-section h3 {
+  margin-bottom: var(--admin-space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--admin-space-sm);
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--admin-space-lg);
+}
+
+.action-card {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  padding: var(--admin-space-xl);
+  text-align: center;
+  transition: var(--admin-transition);
+  cursor: pointer;
+  display: block;
+  width: 100%;
+}
+
+.action-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--admin-shadow-md);
+  border-color: var(--admin-accent);
+}
+
+.action-card i {
+  font-size: 2.5rem;
+  color: var(--admin-accent);
+  margin-bottom: var(--admin-space-md);
+}
+
+.action-card h4 {
+  font-size: 1.125rem;
+  margin-bottom: var(--admin-space-xs);
+}
+
+.action-card p {
+  color: var(--admin-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Aperçu du projet */
+.project-preview {
+  height: 180px;
+  background: var(--admin-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--admin-border-light);
+}
+
+.preview-placeholder {
+  text-align: center;
+  color: var(--admin-text-muted);
+}
+
+.preview-placeholder i {
+  font-size: 3rem;
+  margin-bottom: var(--admin-space-sm);
+  display: block;
+}
+
+/* Cartes de design spécifiques */
+.design-card .project-header {
+  border-bottom: none;
+}
+
+.design-card .project-title h4 {
+  font-size: 1.125rem;
+}
+
+.design-card .project-type {
+  background: rgba(155, 89, 182, 0.1);
+  color: #8e44ad;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--admin-radius-sm);
+  font-size: 0.75rem;
+}
+
+/* Modal spécifique */
+.modal.large {
+  max-width: 800px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--admin-space-lg);
+  margin-bottom: var(--admin-space-lg);
+}
+
+/* Styles responsives */
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .design-tools {
+    grid-template-columns: 1fr;
+  }
+  
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

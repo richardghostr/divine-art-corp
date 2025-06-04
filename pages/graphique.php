@@ -133,7 +133,7 @@
         <div class="portfolio-grid">
             <div class="portfolio-item" data-category="logo">
                 <div class="portfolio-image">
-                    <img src="assets/images/portfolio/logo1.jpg" alt="Logo Design">
+                    <img src="assets/images/IMG-20191011-WA0043.jpg" alt="Logo Design">
                     <div class="portfolio-overlay">
                         <h3>Logo Restaurant</h3>
                         <p>Identité visuelle complète</p>
@@ -144,7 +144,7 @@
             
             <div class="portfolio-item" data-category="brochure">
                 <div class="portfolio-image">
-                    <img src="assets/images/portfolio/brochure1.jpg" alt="Brochure Design">
+                    <img src="assets/images/IMG-20191024-WA0004.jpg" alt="Brochure Design">
                     <div class="portfolio-overlay">
                         <h3>Brochure Corporate</h3>
                         <p>Support de communication</p>
@@ -155,7 +155,7 @@
             
             <div class="portfolio-item" data-category="packaging">
                 <div class="portfolio-image">
-                    <img src="assets/images/portfolio/packaging1.jpg" alt="Packaging Design">
+                    <img src="assets/images/Anonce Banner LGB.jpg" alt="Packaging Design">
                     <div class="portfolio-overlay">
                         <h3>Packaging Cosmétique</h3>
                         <p>Design d'emballage premium</p>
@@ -166,7 +166,7 @@
             
             <div class="portfolio-item" data-category="web">
                 <div class="portfolio-image">
-                    <img src="assets/images/portfolio/web1.jpg" alt="Web Design">
+                    <img src="assets/images/IMG-20200312-WA0009.jpg" alt="Web Design">
                     <div class="portfolio-overlay">
                         <h3>Site E-commerce</h3>
                         <p>UI/UX Design</p>

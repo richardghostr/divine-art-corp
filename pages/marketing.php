@@ -1,4 +1,3 @@
-
 <section class="service-hero marketing-hero " style="background-image: url('assets/images/red.jpg');background-size: cover; background-position: center;margin-top: -5px;">
     <div class="container">
         <div class="service-hero-content">
@@ -9,9 +8,11 @@
                 </h1>
                 <p class="service-subtitle">Stratégies digitales performantes pour développer votre présence en ligne</p>
                 <p class="service-description">
-                    Boostez votre visibilité et générez plus de leads grâce à nos stratégies marketing digital 
-                    sur mesure. De l'optimisation SEO aux campagnes publicitaires, nous vous accompagnons 
-                    dans votre transformation digitale.
+                    Boostez votre visibilité et générez plus de leads grâce à nos stratégies marketing digital
+                    sur mesure. De l'optimisation SEO aux campagnes publicitaires, nous vous accompagnons
+                    dans votre <strong>
+                        transformation digitale
+                    </strong> .
                 </p>
                 <div class="service-cta">
                     <a href="?page=devis&service=marketing" class="btn btn-primary btn-large">
@@ -131,7 +132,7 @@
             <h2>Notre Processus Marketing</h2>
             <p>Une approche méthodique pour garantir le succès de vos campagnes</p>
         </div>
-        
+
         <div class="process-steps">
             <div class="process-step">
                 <div class="step-number">01</div>
@@ -140,7 +141,7 @@
                     <p>Analyse complète de votre situation actuelle et de vos objectifs</p>
                 </div>
             </div>
-            
+
             <div class="process-step">
                 <div class="step-number">02</div>
                 <div class="step-content">
@@ -148,7 +149,7 @@
                     <p>Élaboration d'une stratégie marketing personnalisée</p>
                 </div>
             </div>
-            
+
             <div class="process-step">
                 <div class="step-number">03</div>
                 <div class="step-content">
@@ -156,7 +157,7 @@
                     <p>Déploiement des campagnes et actions marketing</p>
                 </div>
             </div>
-            
+
             <div class="process-step">
                 <div class="step-number">04</div>
                 <div class="step-content">
@@ -173,7 +174,7 @@
         <div class="section-header">
             <h2>Ce que disent nos clients</h2>
         </div>
-        
+
         <div class="testimonials-grid">
             <div class="testimonial-card">
                 <div class="testimonial-content">
@@ -187,7 +188,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="testimonial-card">
                 <div class="testimonial-content">
                     <p>"L'équipe de Divine Art Corporation a transformé notre stratégie social media. Nos ventes ont doublé !"</p>

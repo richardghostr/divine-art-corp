@@ -109,8 +109,7 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
             <!-- Logo et Brand -->
             <div class="admin-brand">
                 <div class="admin-logo">
-                    <i class="fas fa-palette"></i>
-                </div>
+<img src="../assets/images/Logo.svg" alt="">                </div>
                 <span class="admin-brand-text">Divine Art Corp</span>
             </div>
             
@@ -140,45 +139,7 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
             
             <!-- Actions utilisateur -->
             <div class="admin-user-actions">
-                <button class="notification-btn" id="notificationBtn">
-                    <i class="fas fa-bell"></i>
-                    <?php if ($total_notifications > 0): ?>
-                        <span class="notification-badge"><?php echo $total_notifications; ?></span>
-                    <?php endif; ?>
-                </button>
-                
-                <!-- Dropdown notifications -->
-                <div class="notification-dropdown" id="notificationDropdown" style="display: none;">
-                    <div class="notification-header">
-                        <h4>Notifications</h4>
-                        <span class="notification-count"><?php echo $total_notifications; ?> nouvelle(s)</span>
-                    </div>
-                    <div class="notification-list">
-                        <?php if (empty($notifications)): ?>
-                            <div class="notification-item">
-                                <div class="notification-content">
-                                    <p>Aucune nouvelle notification</p>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach ($notifications as $notification): ?>
-                                <div class="notification-item">
-                                    <div class="notification-icon <?php echo $notification['type']; ?>">
-                                        <i class="fas fa-<?php echo $notification['type'] === 'devis' ? 'file-invoice' : ($notification['type'] === 'contacts' ? 'envelope' : 'exclamation-triangle'); ?>"></i>
-                                    </div>
-                                    <div class="notification-content">
-                                        <p><?php echo htmlspecialchars($notification['message']); ?></p>
-                                        <span class="notification-time">Maintenant</span>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                    <div class="notification-footer">
-                        <a href="#" class="notification-link">Voir toutes les notifications</a>
-                    </div>
-                </div>
-                
+                  
                 <div class="user-menu" id="userMenu">
                     <div class="user-avatar">
                         <i class="fas fa-user-circle"></i>
@@ -188,7 +149,6 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                         <span class="user-role"><?php echo ucfirst($current_user['role'] ?? 'Administrateur'); ?></span>
                     </div>
                     <button class="user-dropdown-btn" id="userDropdownBtn">
-                        <i class="fas fa-chevron-down"></i>
                     </button>
                 </div>
                 

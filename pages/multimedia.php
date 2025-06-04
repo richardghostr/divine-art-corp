@@ -298,8 +298,8 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="equipment-image">
-                    <img src="assets/images/equipment.jpg" alt="Notre équipement" class="img-fluid">
+                <div class="why-image">
+                    <img src="assets/images/modern-stationary-collection-arrangement.jpg" alt="Notre équipement" class="img-fluid">
                 </div>
             </div>
         </div>

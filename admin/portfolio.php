@@ -165,6 +165,7 @@ $page_title = "Gestion du Portfolio";
 require_once 'header.php';
 require_once 'sidebar.php'; ?>
 
+<main class="admin-main">
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">
@@ -485,6 +486,8 @@ require_once 'sidebar.php'; ?>
         </div>
     </div>
 </div>
+</main>
+
 
 <!-- CSS personnalisé pour le portfolio -->
 <style>
@@ -663,4 +666,3 @@ function addToPortfolio(id) {
 $conn->close();
 ?>
 
-<?php include 'footer.php'; ?>

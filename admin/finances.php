@@ -894,4 +894,3 @@ const statusChart = new Chart(statusCtx, {
 $conn->close();
 ?>
 
-<?php include 'footer.php'; ?>

@@ -1,4 +1,4 @@
-<header class="header" style="margin-bottom:-5px;">
+<header class="header">
     <nav class="navbar">
         <div class="container">
             <a href="index.php" class="nav-brand">
@@ -31,8 +31,6 @@
         </div>
     </nav>
 </header>
-
-
 <script>
     document.querySelectorAll('.nav-list > li > a').forEach(link => {
     link.addEventListener('mousemove', (e) => {

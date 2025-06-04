@@ -248,7 +248,7 @@
         
         <div class="showcase-grid">
             <div class="showcase-item">
-                <img src="assets/images/printing/business-cards.jpg" alt="Cartes de visite">
+                <img src="assets/images/IMG-20191011-WA0012 (1).jpg" alt="Cartes de visite">
                 <div class="showcase-overlay">
                     <h3>Cartes de Visite</h3>
                     <p>Impression premium avec finitions spéciales</p>
@@ -256,7 +256,7 @@
             </div>
             
             <div class="showcase-item">
-                <img src="assets/images/printing/brochures.jpg" alt="Brochures">
+                <img src="assets/images/IMG-20191011-WA0029.jpg" alt="Brochures">
                 <div class="showcase-overlay">
                     <h3>Brochures</h3>
                     <p>Catalogues et supports commerciaux</p>
@@ -264,7 +264,7 @@
             </div>
             
             <div class="showcase-item">
-                <img src="assets/images/printing/banners.jpg" alt="Banners">
+                <img src="assets/images/IMG-20200312-WA0010.jpg" alt="Banners">
                 <div class="showcase-overlay">
                     <h3>Banners</h3>
                     <p>Signalétique et communication extérieure</p>
@@ -272,7 +272,7 @@
             </div>
             
             <div class="showcase-item">
-                <img src="assets/images/printing/packaging.jpg" alt="Packaging">
+                <img src="assets/images/Logo Vestidor-01.jpg" alt="Packaging">
                 <div class="showcase-overlay">
                     <h3>Packaging</h3>
                     <p>Emballages personnalisés</p>
@@ -326,8 +326,8 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="quality-image">
-                    <img src="assets/images/quality-printing.jpg" alt="Qualité d'impression" class="img-fluid">
+                <div class="why-image" >
+                    <img src="assets/images/modern-printing-press-produces-multi-colored-printouts-accurately-generated-by-ai.jpg" alt="Qualité d'impression" class="img-fluid">
                 </div>
             </div>
         </div>
