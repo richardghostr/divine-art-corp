@@ -1,131 +1,156 @@
 <?php
-session_start();
-require_once '../config/database.php';
-require_once '../includes/functions.php';
+/**
+ * Traitement du formulaire de contact
+ * Divine Art Corporation
+ */
 
-header('Content-Type: application/json');
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
-    exit;
+// Démarrer la session si elle n'est pas déjà démarrée
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-try {
-    // Validation et nettoyage des données
-    $nom = sanitizeInput($_POST['nom'] ?? '');
-    $email = sanitizeInput($_POST['email'] ?? '');
-    $telephone = sanitizeInput($_POST['telephone'] ?? '');
-    $entreprise = sanitizeInput($_POST['entreprise'] ?? '');
-    $sujet = sanitizeInput($_POST['sujet'] ?? '');
-    $message = sanitizeInput($_POST['message'] ?? '');
-    $newsletter = isset($_POST['newsletter']) ? 1 : 0;
-    $rgpd = isset($_POST['rgpd']) ? 1 : 0;
+// Inclure la configuration de la base de données
+require_once '../config/database.php';
 
-    // Validation des champs requis
-    $errors = [];
+// Vérifier si le formulaire a été soumis
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    if (empty($nom)) {
-        $errors[] = 'Le nom est requis';
-    }
-    
-    if (empty($email)) {
-        $errors[] = 'L\'email est requis';
-    } elseif (!validateEmail($email)) {
-        $errors[] = 'L\'email n\'est pas valide';
-    }
-    
-    if (empty($message)) {
-        $errors[] = 'Le message est requis';
-    }
-    
-    if (!$rgpd) {
-        $errors[] = 'Vous devez accepter l\'utilisation de vos données';
-    }
-    
-    if (!empty($errors)) {
-        echo json_encode(['success' => false, 'message' => implode(', ', $errors)]);
+    // Vérifier le token CSRF
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $_SESSION['contact_message'] = "Erreur de sécurité. Veuillez réessayer.";
+        $_SESSION['contact_message_type'] = "error";
+        $_SESSION['form_data'] = $_POST;
+        header('Location: ../index.php?page=contact');
         exit;
     }
     
-    // Insertion en base de données
-    $db = new Database();
-    $db->query("INSERT INTO contacts (nom, email, telephone, entreprise, sujet, message, newsletter) 
-                VALUES (:nom, :email, :telephone, :entreprise, :sujet, :message, :newsletter)");
+    // Récupérer et nettoyer les données du formulaire
+    $nom = isset($_POST['nom']) ? mysqli_real_escape_string($conn, trim($_POST['nom'])) : '';
+    $email = isset($_POST['email']) ? mysqli_real_escape_string($conn, trim($_POST['email'])) : '';
+    $telephone = isset($_POST['telephone']) ? mysqli_real_escape_string($conn, trim($_POST['telephone'])) : '';
+    $entreprise = isset($_POST['entreprise']) ? mysqli_real_escape_string($conn, trim($_POST['entreprise'])) : '';
+    $sujet = isset($_POST['sujet']) ? mysqli_real_escape_string($conn, trim($_POST['sujet'])) : '';
+    $message = isset($_POST['message']) ? mysqli_real_escape_string($conn, trim($_POST['message'])) : '';
+    $newsletter = isset($_POST['newsletter']) ? 1 : 0;
+    $rgpd = isset($_POST['rgpd']) ? 1 : 0;
     
-    $db->bind(':nom', $nom);
-    $db->bind(':email', $email);
-    $db->bind(':telephone', $telephone);
-    $db->bind(':entreprise', $entreprise);
-    $db->bind(':sujet', $sujet);
-    $db->bind(':message', $message);
-    $db->bind(':newsletter', $newsletter);
+    // Valider les données
+    $errors = [];
     
-    if ($db->execute()) {
-        // Envoi d'email de confirmation
-        $emailSubject = "Nouvelle demande de contact - Divine Art Corporation";
-        $emailMessage = "
-        <html>
-        <head>
-            <title>Nouvelle demande de contact</title>
-        </head>
-        <body>
-            <h2>Nouvelle demande de contact</h2>
-            <p><strong>Nom:</strong> $nom</p>
-            <p><strong>Email:</strong> $email</p>
-            <p><strong>Téléphone:</strong> $telephone</p>
-            <p><strong>Entreprise:</strong> $entreprise</p>
-            <p><strong>Sujet:</strong> $sujet</p>
-            <p><strong>Message:</strong></p>
-            <p>$message</p>
-            <p><strong>Newsletter:</strong> " . ($newsletter ? 'Oui' : 'Non') . "</p>
-            <hr>
-            <p>Message reçu le " . date('d/m/Y à H:i') . "</p>
-        </body>
-        </html>";
-        
-        // Envoyer à l'équipe
-        sendEmail('contact@divineartcorp.cm', $emailSubject, $emailMessage, $email);
-        
-        // Email de confirmation au client
-        $clientEmailSubject = "Confirmation de réception - Divine Art Corporation";
-        $clientEmailMessage = "
-        <html>
-        <head>
-            <title>Confirmation de réception</title>
-        </head>
-        <body>
-            <h2>Bonjour $nom,</h2>
-            <p>Nous avons bien reçu votre message et vous remercions de votre intérêt pour Divine Art Corporation.</p>
-            <p>Notre équipe va étudier votre demande et vous recontacter dans les plus brefs délais.</p>
-            <p>En attendant, n'hésitez pas à consulter notre portfolio sur notre site web.</p>
-            <br>
-            <p>Cordialement,</p>
-            <p>L'équipe Divine Art Corporation</p>
-            <hr>
-            <p>Divine Art Corporation - Votre partenaire créatif au Cameroun</p>
-        </body>
-        </html>";
-        
-        sendEmail($email, $clientEmailSubject, $clientEmailMessage);
-        
-        // Log de l'activité
-        logActivity("Nouveau contact reçu", "De: $nom ($email)");
-        
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Votre message a été envoyé avec succès. Nous vous recontacterons rapidement.'
-        ]);
-        
-    } else {
-        throw new Exception('Erreur lors de l\'enregistrement');
+    if (empty($nom)) {
+        $errors[] = "Le nom est obligatoire.";
     }
     
-} catch (Exception $e) {
-    error_log("Erreur contact: " . $e->getMessage());
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Une erreur est survenue. Veuillez réessayer plus tard.'
-    ]);
+    if (empty($email)) {
+        $errors[] = "L'email est obligatoire.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "L'email n'est pas valide.";
+    }
+    
+    if (empty($message)) {
+        $errors[] = "Le message est obligatoire.";
+    }
+    
+    if (!$rgpd) {
+        $errors[] = "Vous devez accepter la politique de confidentialité.";
+    }
+    
+    // S'il y a des erreurs, rediriger vers le formulaire avec les messages d'erreur
+    if (!empty($errors)) {
+        $_SESSION['contact_message'] = implode("<br>", $errors);
+        $_SESSION['contact_message_type'] = "error";
+        $_SESSION['form_data'] = $_POST;
+        header('Location: ../index.php?page=contact');
+        exit;
+    }
+    
+    // Vérifier si la table contacts existe
+    $check_table_query = "SHOW TABLES LIKE 'contacts'";
+    $table_result = mysqli_query($conn, $check_table_query);
+    $table_exists = ($table_result && mysqli_num_rows($table_result) > 0);
+    
+    if (!$table_exists) {
+        // Créer la table contacts si elle n'existe pas
+        $create_table_query = "CREATE TABLE IF NOT EXISTS contacts (
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            nom VARCHAR(100) NOT NULL,
+            email VARCHAR(100) NOT NULL,
+            telephone VARCHAR(20) NULL,
+            entreprise VARCHAR(100) NULL,
+            sujet VARCHAR(50) NULL,
+            message TEXT NOT NULL,
+            newsletter TINYINT(1) NOT NULL DEFAULT 0,
+            rgpd TINYINT(1) NOT NULL DEFAULT 0,
+            ip_address VARCHAR(45) NULL,
+            user_agent TEXT NULL,
+            date_creation DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            statut VARCHAR(20) NOT NULL DEFAULT 'nouveau',
+            traite_par INT(11) NULL,
+            date_traitement DATETIME NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        if (!mysqli_query($conn, $create_table_query)) {
+            error_log("Erreur lors de la création de la table contacts: " . mysqli_error($conn));
+            $_SESSION['contact_message'] = "Une erreur est survenue. Veuillez réessayer plus tard.";
+            $_SESSION['contact_message_type'] = "error";
+            $_SESSION['form_data'] = $_POST;
+            header('Location: ../index.php?page=contact');
+            exit;
+        }
+    }
+    
+    // Enregistrer le message dans la base de données
+    $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+    
+    $query = "INSERT INTO contacts (nom, email, telephone, entreprise, sujet, message, newsletter, rgpd, ip_address, user_agent) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = mysqli_prepare($conn, $query);
+    
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, "ssssssiiis", $nom, $email, $telephone, $entreprise, $sujet, $message, $newsletter, $rgpd, $ip_address, $user_agent);
+        
+        if (mysqli_stmt_execute($stmt)) {
+            // Message enregistré avec succès
+            $_SESSION['contact_message'] = "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.";
+            $_SESSION['contact_message_type'] = "success";
+            
+            // Enregistrer l'activité
+            if (function_exists('logActivity')) {
+                logActivity(0, 'Nouveau message de contact', 'contacts', mysqli_insert_id($conn), "Message de $nom ($email)");
+            }
+            
+            // Envoyer une notification par email (à implémenter)
+            // sendContactNotification($nom, $email, $sujet, $message);
+            
+            // Rediriger vers la page de contact
+            header('Location: ../index.php?page=contact');
+            exit;
+        } else {
+            // Erreur lors de l'enregistrement
+            error_log("Erreur lors de l'enregistrement du message: " . mysqli_stmt_error($stmt));
+            $_SESSION['contact_message'] = "Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.";
+            $_SESSION['contact_message_type'] = "error";
+            $_SESSION['form_data'] = $_POST;
+            header('Location: ../index.php?page=contact');
+            exit;
+        }
+        
+        mysqli_stmt_close($stmt);
+    } else {
+        // Erreur de préparation de la requête
+        error_log("Erreur de préparation de la requête: " . mysqli_error($conn));
+        $_SESSION['contact_message'] = "Une erreur est survenue. Veuillez réessayer plus tard.";
+        $_SESSION['contact_message_type'] = "error";
+        $_SESSION['form_data'] = $_POST;
+        header('Location: ../index.php?page=contact');
+        exit;
+    }
+} else {
+    // Accès direct au script sans soumission de formulaire
+    header('Location: ../index.php');
+    exit;
 }
 ?>

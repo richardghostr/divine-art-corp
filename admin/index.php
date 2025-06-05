@@ -495,7 +495,7 @@ require_once 'sidebar.php';
 
 <!-- Modale Nouveau Projet -->
 <div id="new-project-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content large">
         <div class="modal-header">
             <h3>Nouveau Projet</h3>
             <button class="modal-close" onclick="closeModal('new-project-modal')">
@@ -503,29 +503,92 @@ require_once 'sidebar.php';
             </button>
         </div>
         <div class="modal-body">
-            <!-- Dans la modale -->
-<form id="new-project-form">
-    <!-- ... autres champs ... -->
-    <input type="hidden" name="action" value="create_project">
-    
-    <div class="form-group">
-        <label for="project-name">Nom du Projet</label>
-        <input type="text" id="project-name" name="name" class="form-control" required>
-    </div>
-    
-    <div class="form-group">
-        <label for="project-service">Service</label>
-        <select id="project-service" name="service" class="form-control" required>
-            <!-- options -->
-        </select>
-    </div>
-    
-    <!-- Ajoutez name="budget" -->
-    <input type="number" id="project-budget" name="budget" class="form-control" min="0" step="1">
-    
-    <!-- Ajoutez name="description" -->
-    <textarea id="project-description" name="description" class="form-control" rows="3"></textarea>
-</form>
+            <form id="new-project-form" action="projets.php" method="POST">
+                <div class="form-group">
+                    <label for="project-name">Nom du Projet</label>
+                    <input type="text" id="project-name" name="name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-client">Client</label>
+                    <select id="project-client" name="client_id" class="form-control" required>
+                        <option value="">Sélectionner un client</option>
+                        <?php
+                        $clients = $conn->query("SELECT id, nom, entreprise FROM clients ORDER BY nom");
+                        if ($clients) {
+                            foreach ($clients as $client) {
+                                echo '<option value="' . $client['id'] . '">' 
+                                    . htmlspecialchars($client['entreprise'] ?: $client['nom']) 
+                                    . '</option>';
+                            }
+                        }
+                        ?>
+                        <option value="new">+ Nouveau Client</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-devis">Devis associé</label>
+                    <select id="project-devis" name="devis_id" class="form-control" required>
+                        <option value="">Sélectionner un devis</option>
+                        <?php
+                        $devis_list = $conn->query("SELECT id, numero_devis, description FROM devis WHERE statut IN ('nouveau', 'en_cours') ORDER BY date_creation DESC");
+                        if ($devis_list) {
+                            foreach ($devis_list as $devis) {
+                                echo '<option value="' . $devis['id'] . '">' 
+                                    . htmlspecialchars($devis['numero_devis'] . ' - ' . $devis['description']) 
+                                    . '</option>';
+                            }
+                        }
+                        ?>
+                        <option value="new">+ Nouveau Devis</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-service">Service</label>
+                    <select id="project-service" name="service" class="form-control" required>
+                        <option value="">Sélectionner un service</option>
+                        <?php
+                        $services = $conn->query("SELECT slug, nom FROM services WHERE actif = 1 ORDER BY ordre");
+                        if ($services) {
+                            foreach ($services as $service) {
+                                echo '<option value="' . $service['slug'] . '">' 
+                                    . htmlspecialchars($service['nom']) 
+                                    . '</option>';
+                            }
+                        }
+                        ?>
+                    </select>
+                </div>
+                
+                <div class="row" >
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="project-start">Date de Début</label>
+                            <input type="date" id="project-start" name="start_date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="project-end">Date de Fin</label>
+                            <input type="date" id="project-end" name="end_date" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-budget">Budget (FCFA)</label>
+                    <input type="number" id="project-budget" name="budget" class="form-control" min="0" step="1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-description">Description</label>
+                    <textarea id="project-description" name="description" class="form-control" rows="3"></textarea>
+                </div>
+                
+                <input type="hidden" name="action" value="create_project">
+            </form>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-outline" onclick="closeModal('new-project-modal')">Annuler</button>
@@ -674,40 +737,42 @@ require_once 'sidebar.php';
     });
 </script>
 <script>
-// Gestion de la création de projet
-document.getElementById('new-project-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    
-    try {
-        const response = await fetch('projets.php?action=create_project', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Fermer la modale et recharger la page
-            closeModal('new-project-modal');
-            location.reload();
-        } else {
-            alert('Erreur: ' + (result.error || 'Échec de la création du projet'));
-        }
-    } catch (error) {
-        console.error('Erreur:', error);
-        alert('Une erreur réseau est survenue');
-    }
-});
+    // Gestion de la création de projet
+    document.getElementById('new-project-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-// Pré-remplir le devis si ID passé dans l'URL
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const devisId = urlParams.get('devis_id');
-    
-    if (devisId) {
-        document.getElementById('project-devis').value = devisId;
-    }
-});
+        const formData = new FormData(this);
+
+        try {
+            const response = await fetch('projets.php?action=create_project', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Fermer la modale et recharger la page
+                closeModal('new-project-modal');
+                location.reload();
+            } else {
+                alert('Erreur: ' + (result.error || 'Échec de la création du projet'));
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('Une erreur réseau est survenue');
+        }
+    });
+
+    // Pré-remplir le devis si ID passé dans l'URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const devisId = urlParams.get('devis_id');
+
+        if (devisId) {
+            document.getElementById('project-devis').value = devisId;
+        }
+    });
 </script>
+
+

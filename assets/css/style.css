@@ -131,6 +131,7 @@ body {
 
 .dropdown {
     position: relative;
+    justify-content: center;
 }
 
 .dropdown-toggle {
@@ -807,7 +808,6 @@ body {
 @media (max-width: 768px) {
     .hero {
         height: auto;
-        min-height: auto;
         padding-top: 80px;
         padding-bottom: 80px;
     }

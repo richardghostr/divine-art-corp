@@ -908,3 +908,5 @@ setInterval(function() {
 }, 30000); // Vérifier toutes les 30 secondes
 </script>
 
+<style>/* Gestion des Contacts - Style Principal */
+</style>

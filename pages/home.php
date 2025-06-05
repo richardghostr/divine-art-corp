@@ -8,12 +8,12 @@
         </div>
         
         <!-- Slide 2 -->
-        <div class="slide" style="background-image: url('assets/images/slide2.jpg');background-size: cover; background-position: center;">
+        <div class="slide" style="background-image: url('assets/images/slider4.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
         
         <!-- Slide 3 -->
-        <div class="slide" style="background-image: url('assets/images/slide3.jpg');background-size: cover; background-position: center;">
+        <div class="slide" style="background-image: url('assets/images/slide6.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
     </div>

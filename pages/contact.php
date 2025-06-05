@@ -1,3 +1,120 @@
+<?php
+// Récupération des paramètres de contact depuis la base de données
+require_once 'config/database.php';
+
+// Initialisation des variables
+$contact_info = [];
+$social_links = [];
+$faqs = [];
+
+// Vérifier si les tables nécessaires existent
+$tables_exist = true;
+
+// Vérifier si la table parametres existe
+$check_table_query = "SHOW TABLES LIKE 'parametres'";
+$table_result = mysqli_query($conn, $check_table_query);
+if (!$table_result || mysqli_num_rows($table_result) == 0) {
+    $tables_exist = false;
+    error_log("La table 'parametres' n'existe pas dans la base de données.");
+}
+if ($table_result) {
+    mysqli_free_result($table_result);
+}
+
+// Vérifier si la table faq existe
+$check_faq_table_query = "SHOW TABLES LIKE 'faq'";
+$faq_table_result = mysqli_query($conn, $check_faq_table_query);
+$faq_table_exists = ($faq_table_result && mysqli_num_rows($faq_table_result) > 0);
+if ($faq_table_result) {
+    mysqli_free_result($faq_table_result);
+}
+
+// Si les tables existent, récupérer les données
+if ($tables_exist) {
+    // Récupération des informations de contact
+    $query = "SELECT * FROM parametres WHERE type = 'contact'";
+    $result = mysqli_query($conn, $query);
+
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $contact_info[$row['cle']] = $row['valeur'];
+        }
+        mysqli_free_result($result);
+    } else {
+        error_log("Erreur lors de la récupération des données de contact: " . mysqli_error($conn));
+    }
+
+    // Récupération des liens sociaux
+    $query = "SELECT * FROM parametres WHERE type = 'social'";
+    $result = mysqli_query($conn, $query);
+
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $social_links[$row['cle']] = $row['valeur'];
+        }
+        mysqli_free_result($result);
+    } else {
+        error_log("Erreur lors de la récupération des liens sociaux: " . mysqli_error($conn));
+    }
+}
+
+// Récupération des FAQ si la table existe
+if ($faq_table_exists) {
+    $query = "SELECT * FROM faq WHERE actif = 1 ORDER BY ordre ASC";
+    $result = mysqli_query($conn, $query);
+
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $faqs[] = $row;
+        }
+        mysqli_free_result($result);
+    } else {
+        error_log("Erreur lors de la récupération des FAQ: " . mysqli_error($conn));
+    }
+}
+
+// Définir les valeurs par défaut si les données ne sont pas disponibles
+if (empty($contact_info)) {
+    $contact_info = [
+        'adresse' => 'Douala, Akwa Nord<br>Cameroun',
+        'telephone1' => '+237 6XX XXX XXX',
+        'telephone2' => '+237 6XX XXX XXX',
+        'email1' => 'contact@divineartcorp.cm',
+        'email2' => 'info@divineartcorp.cm',
+        'horaires' => 'Lun - Ven: 8h00 - 18h00<br>Sam: 9h00 - 15h00',
+        'map_url' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3979.808258706028!2d9.735686!3d4.01498!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNMKwMDAnNTMuOSJOIDnCsDQ0JzA4LjUiRQ!5e0!3m2!1sfr!2scm!4v1717500000000!5m2!1sfr!2scm'
+    ];
+}
+
+// Gestion du message de confirmation
+$message = '';
+$message_type = '';
+if (isset($_SESSION['contact_message'])) {
+    $message = $_SESSION['contact_message'];
+    $message_type = $_SESSION['contact_message_type'];
+    unset($_SESSION['contact_message'], $_SESSION['contact_message_type']);
+}
+
+// Génération du token CSRF s'il n'existe pas
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+?>
+
+<?php if ($message): ?>
+<div class="alert alert-<?php echo $message_type; ?>" id="contactAlert">
+    <div class="container">
+        <div class="alert-content">
+            <i class="fas fa-<?php echo $message_type === 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
+            <span><?php echo htmlspecialchars($message); ?></span>
+            <button type="button" class="alert-close" onclick="closeAlert()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <section class="contact-hero">
     <div class="container">
         <div class="contact-hero-content">
@@ -21,7 +138,7 @@
                         </div>
                         <div class="contact-text">
                             <h3>Adresse</h3>
-                            <p>Douala, Akwa Nord<br>Cameroun</p>
+                            <p><?php echo isset($contact_info['adresse']) ? $contact_info['adresse'] : 'Douala, Akwa Nord<br>Cameroun'; ?></p>
                         </div>
                     </div>
 
@@ -31,7 +148,8 @@
                         </div>
                         <div class="contact-text">
                             <h3>Téléphone</h3>
-                            <p>+237 6XX XXX XXX<br>+237 6XX XXX XXX</p>
+                            <p><?php echo isset($contact_info['telephone1']) ? $contact_info['telephone1'] : '+237 6XX XXX XXX'; ?><br>
+                               <?php echo isset($contact_info['telephone2']) ? $contact_info['telephone2'] : '+237 6XX XXX XXX'; ?></p>
                         </div>
                     </div>
 
@@ -41,7 +159,8 @@
                         </div>
                         <div class="contact-text">
                             <h3>Email</h3>
-                            <p>contact@divineartcorp.cm<br>info@divineartcorp.cm</p>
+                            <p><?php echo isset($contact_info['email1']) ? $contact_info['email1'] : 'contact@divineartcorp.cm'; ?><br>
+                               <?php echo isset($contact_info['email2']) ? $contact_info['email2'] : 'info@divineartcorp.cm'; ?></p>
                         </div>
                     </div>
 
@@ -51,7 +170,7 @@
                         </div>
                         <div class="contact-text">
                             <h3>Horaires</h3>
-                            <p>Lun - Ven: 8h00 - 18h00<br>Sam: 9h00 - 15h00</p>
+                            <p><?php echo isset($contact_info['horaires']) ? $contact_info['horaires'] : 'Lun - Ven: 8h00 - 18h00<br>Sam: 9h00 - 15h00'; ?></p>
                         </div>
                     </div>
                 </div>
@@ -59,6 +178,38 @@
                 <div class="social-links">
                     <h3>Suivez-nous</h3>
                     <div class="social-icons">
+                        <?php if (isset($social_links['facebook']) && !empty($social_links['facebook'])): ?>
+                        <a href="<?php echo htmlspecialchars($social_links['facebook']); ?>" class="social-link facebook" target="_blank">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($social_links['instagram']) && !empty($social_links['instagram'])): ?>
+                        <a href="<?php echo htmlspecialchars($social_links['instagram']); ?>" class="social-link instagram" target="_blank">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($social_links['linkedin']) && !empty($social_links['linkedin'])): ?>
+                        <a href="<?php echo htmlspecialchars($social_links['linkedin']); ?>" class="social-link linkedin" target="_blank">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($social_links['twitter']) && !empty($social_links['twitter'])): ?>
+                        <a href="<?php echo htmlspecialchars($social_links['twitter']); ?>" class="social-link twitter" target="_blank">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <?php endif; ?>
+                        
+                        <?php if (isset($social_links['whatsapp']) && !empty($social_links['whatsapp'])): ?>
+                        <a href="<?php echo htmlspecialchars($social_links['whatsapp']); ?>" class="social-link whatsapp" target="_blank">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                        <?php endif; ?>
+                        
+                        <!-- Liens par défaut si aucun n'est configuré -->
+                        <?php if (empty($social_links)): ?>
                         <a href="#" class="social-link facebook">
                             <i class="fab fa-facebook-f"></i>
                         </a>
@@ -74,6 +225,7 @@
                         <a href="#" class="social-link whatsapp">
                             <i class="fab fa-whatsapp"></i>
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -85,24 +237,24 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="nom">Nom complet *</label>
-                            <input type="text" id="nom" name="nom" required>
+                            <input type="text" id="nom" name="nom" required value="<?php echo isset($_SESSION['form_data']['nom']) ? htmlspecialchars($_SESSION['form_data']['nom']) : ''; ?>">
                         </div>
 
                         <div class="form-group">
                             <label for="email">Email *</label>
-                            <input type="email" id="email" name="email" required>
+                            <input type="email" id="email" name="email" required value="<?php echo isset($_SESSION['form_data']['email']) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label for="telephone">Téléphone</label>
-                            <input type="tel" id="telephone" name="telephone">
+                            <input type="tel" id="telephone" name="telephone" value="<?php echo isset($_SESSION['form_data']['telephone']) ? htmlspecialchars($_SESSION['form_data']['telephone']) : ''; ?>">
                         </div>
 
                         <div class="form-group">
                             <label for="entreprise">Entreprise</label>
-                            <input type="text" id="entreprise" name="entreprise">
+                            <input type="text" id="entreprise" name="entreprise" value="<?php echo isset($_SESSION['form_data']['entreprise']) ? htmlspecialchars($_SESSION['form_data']['entreprise']) : ''; ?>">
                         </div>
                     </div>
 
@@ -110,23 +262,23 @@
                         <label for="sujet">Sujet</label>
                         <select id="sujet" name="sujet">
                             <option value="">Sélectionnez un sujet</option>
-                            <option value="marketing">Marketing Digital</option>
-                            <option value="graphique">Conception Graphique</option>
-                            <option value="multimedia">Conception Multimédia</option>
-                            <option value="imprimerie">Imprimerie</option>
-                            <option value="devis">Demande de devis</option>
-                            <option value="autre">Autre</option>
+                            <option value="marketing" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'marketing') ? 'selected' : ''; ?>>Marketing Digital</option>
+                            <option value="graphique" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'graphique') ? 'selected' : ''; ?>>Conception Graphique</option>
+                            <option value="multimedia" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'multimedia') ? 'selected' : ''; ?>>Conception Multimédia</option>
+                            <option value="imprimerie" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'imprimerie') ? 'selected' : ''; ?>>Imprimerie</option>
+                            <option value="devis" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'devis') ? 'selected' : ''; ?>>Demande de devis</option>
+                            <option value="autre" <?php echo (isset($_SESSION['form_data']['sujet']) && $_SESSION['form_data']['sujet'] === 'autre') ? 'selected' : ''; ?>>Autre</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label for="message">Message *</label>
-                        <textarea id="message" name="message" rows="6" required placeholder="Décrivez votre projet ou votre demande..."></textarea>
+                        <textarea id="message" name="message" rows="6" required placeholder="Décrivez votre projet ou votre demande..."><?php echo isset($_SESSION['form_data']['message']) ? htmlspecialchars($_SESSION['form_data']['message']) : ''; ?></textarea>
                     </div>
 
                     <div class="form-group checkbox-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" name="newsletter" value="1">
+                            <input type="checkbox" name="newsletter" value="1" <?php echo (isset($_SESSION['form_data']['newsletter']) && $_SESSION['form_data']['newsletter'] === '1') ? 'checked' : ''; ?>>
                             <span class="checkmark"></span>
                             Je souhaite recevoir la newsletter de Divine Art Corporation
                         </label>
@@ -140,9 +292,16 @@
                         </label>
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-large">
+                    <!-- Protection CSRF -->
+                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
+
+                    <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
                         <i class="fas fa-paper-plane"></i>
-                        Envoyer le Message
+                        <span class="btn-text">Envoyer le Message</span>
+                        <span class="btn-loading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Envoi en cours...
+                        </span>
                     </button>
                 </form>
             </div>
@@ -154,8 +313,12 @@
     <div class="container">
         <h2>Notre Localisation</h2>
         <div class="map-container">
+            <?php 
+            $map_url = isset($contact_info['map_url']) ? $contact_info['map_url'] : 
+                'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3979.808258706028!2d9.735686!3d4.01498!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNMKwMDAnNTMuOSJOIDnCsDQ0JzA4LjUiRQ!5e0!3m2!1sfr!2scm!4v1717500000000!5m2!1sfr!2scm';
+            ?>
             <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3979.808258706028!2d9.735686!3d4.01498!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNMKwMDAnNTMuOSJOIDnCsDQ0JzA4LjUiRQ!5e0!3m2!1sfr!2scm!4v1717500000000!5m2!1sfr!2scm"
+                src="<?php echo htmlspecialchars($map_url); ?>"
                 width="100%"
                 height="400"
                 style="border:0;"
@@ -175,48 +338,194 @@
         </div>
 
         <div class="faq-grid">
-            <div class="faq-item">
-                <div class="faq-question">
-                    <h3>Quels sont vos délais de réalisation ?</h3>
-                    <i class="fas fa-chevron-down"></i>
+            <?php if (!empty($faqs)): ?>
+                <?php foreach ($faqs as $faq): ?>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3><?php echo htmlspecialchars($faq['question']); ?></h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p><?php echo nl2br(htmlspecialchars($faq['reponse'])); ?></p>
+                    </div>
                 </div>
-                <div class="faq-answer">
-                    <p>Les délais varient selon le type de projet. En général, comptez 3-5 jours pour un logo, 1-2 semaines pour une identité complète, et 2-4 semaines pour une stratégie marketing.</p>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <!-- FAQ par défaut si aucune n'est configurée -->
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Quels sont vos délais de réalisation ?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Les délais varient selon le type de projet. En général, comptez 3-5 jours pour un logo, 1-2 semaines pour une identité complète, et 2-4 semaines pour une stratégie marketing.</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="faq-item">
-                <div class="faq-question">
-                    <h3>Proposez-vous des révisions ?</h3>
-                    <i class="fas fa-chevron-down"></i>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Proposez-vous des révisions ?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Oui, nous incluons 3 révisions gratuites dans tous nos projets. Des révisions supplémentaires peuvent être facturées selon la complexité.</p>
+                    </div>
                 </div>
-                <div class="faq-answer">
-                    <p>Oui, nous incluons 3 révisions gratuites dans tous nos projets. Des révisions supplémentaires peuvent être facturées selon la complexité.</p>
-                </div>
-            </div>
 
-            <div class="faq-item">
-                <div class="faq-question">
-                    <h3>Travaillez-vous avec des entreprises de toutes tailles ?</h3>
-                    <i class="fas fa-chevron-down"></i>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Travaillez-vous avec des entreprises de toutes tailles ?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Absolument ! Nous accompagnons aussi bien les startups que les grandes entreprises, en adaptant nos services à vos besoins et budget.</p>
+                    </div>
                 </div>
-                <div class="faq-answer">
-                    <p>Absolument ! Nous accompagnons aussi bien les startups que les grandes entreprises, en adaptant nos services à vos besoins et budget.</p>
-                </div>
-            </div>
 
-            <div class="faq-item">
-                <div class="faq-question">
-                    <h3>Quels formats de fichiers livrez-vous ?</h3>
-                    <i class="fas fa-chevron-down"></i>
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <h3>Quels formats de fichiers livrez-vous ?</h3>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Nous livrons tous les formats nécessaires : AI, EPS, PDF, PNG, JPG en haute résolution, ainsi que les fichiers sources modifiables.</p>
+                    </div>
                 </div>
-                <div class="faq-answer">
-                    <p>Nous livrons tous les formats nécessaires : AI, EPS, PDF, PNG, JPG en haute résolution, ainsi que les fichiers sources modifiables.</p>
-                </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>
+
+<?php
+// Nettoyer les données de session après affichage
+if (isset($_SESSION['form_data'])) {
+    unset($_SESSION['form_data']);
+}
+?>
+
+<script>
+// Gestion des FAQ
+document.addEventListener('DOMContentLoaded', function() {
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question');
+        question.addEventListener('click', () => {
+            const isActive = item.classList.contains('active');
+            
+            // Fermer tous les autres items
+            faqItems.forEach(otherItem => {
+                otherItem.classList.remove('active');
+            });
+            
+            // Ouvrir/fermer l'item cliqué
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        });
+    });
+
+    // Gestion du formulaire
+    const form = document.getElementById('contactForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    form.addEventListener('submit', function(e) {
+        // Afficher l'état de chargement
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        submitBtn.disabled = true;
+    });
+});
+
+// Fonction pour fermer l'alerte
+function closeAlert() {
+    const alert = document.getElementById('contactAlert');
+    if (alert) {
+        alert.style.display = 'none';
+    }
+}
+
+// Auto-fermeture de l'alerte après 5 secondes
+setTimeout(function() {
+    closeAlert();
+}, 5000);
+</script>
+
+<style>
+/* Styles pour les alertes */
+.alert {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    padding: 1rem 0;
+    animation: slideDown 0.3s ease-out;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+.alert-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.alert-content i {
+    margin-right: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.alert-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour le bouton de chargement */
+.btn-loading {
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+</style>
 
 <style>
     /* Contact Page Styles */

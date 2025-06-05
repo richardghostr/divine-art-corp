@@ -1,6 +1,6 @@
 <?php
 // Gestion du portfolio - Divine Art Corporation
-// Version: 1.0
+// Version: 2.0
 // Date: 2024
 
 // Initialisation de la session et vérification de l'authentification
@@ -23,11 +23,12 @@ if ($conn->connect_error) {
 $stats = [];
 $query = "SELECT 
           COUNT(*) as total_projets,
-          SUM(CASE WHEN p.statut = 'termine' THEN 1 ELSE 0 END) as projets_termines,
-          COUNT(DISTINCT d.service) as services_distincts
+          SUM(CASE WHEN p.featured = 1 THEN 1 ELSE 0 END) as projets_featured,
+          COUNT(DISTINCT d.service) as services_distincts,
+          SUM(CASE WHEN p.date_creation >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as nouveaux_projets
           FROM projets p 
           JOIN devis d ON p.devis_id = d.id 
-          WHERE p.statut = 'termine'";
+          WHERE p.statut = 'termine' AND p.in_portfolio = 1";
 $result = $conn->query($query);
 if ($result) {
     $stats = $result->fetch_assoc();
@@ -35,7 +36,7 @@ if ($result) {
 
 // Récupération des services pour le filtrage
 $services = [];
-$query = "SELECT id, nom, slug FROM services ORDER BY nom ASC";
+$query = "SELECT slug, nom FROM services ORDER BY nom ASC";
 $result = $conn->query($query);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
@@ -45,7 +46,7 @@ if ($result) {
 
 // Pagination et filtrage
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
-$limit = 12; // Afficher 12 projets par page (grille 3x4)
+$limit = 12;
 $offset = ($page - 1) * $limit;
 
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
@@ -53,7 +54,7 @@ $service_filter = isset($_GET['service']) ? $conn->real_escape_string($_GET['ser
 $featured_filter = isset($_GET['featured']) ? (int)$_GET['featured'] : -1;
 
 // Construction de la clause WHERE
-$where_clause = "p.statut = 'termine'";
+$where_clause = "p.statut = 'termine' AND p.in_portfolio = 1";
 if (!empty($search)) {
     $where_clause .= " AND (p.nom LIKE '%$search%' OR d.nom LIKE '%$search%' OR d.entreprise LIKE '%$search%')";
 }
@@ -65,10 +66,12 @@ if ($featured_filter !== -1) {
 }
 
 // Récupération des projets pour le portfolio
-$query = "SELECT p.*, d.nom as client_nom, d.entreprise, d.service, 
-          (SELECT chemin FROM fichiers WHERE table_liee = 'projets' AND id_enregistrement = p.id AND type_fichier = 'projet' ORDER BY id DESC LIMIT 1) as image_principale
+$query = "SELECT p.*, d.nom as client_nom, d.entreprise, d.service, d.montant_final,
+          s.nom as service_nom,
+          (SELECT chemin FROM fichiers WHERE table_liee = 'projets' AND id_enregistrement = p.id AND type_fichier = 'image' ORDER BY id DESC LIMIT 1) as image_principale
           FROM projets p 
           JOIN devis d ON p.devis_id = d.id 
+          LEFT JOIN services s ON d.service = s.slug
           WHERE $where_clause
           ORDER BY p.featured DESC, p.date_fin_reelle DESC
           LIMIT $offset, $limit";
@@ -77,24 +80,9 @@ $result = $conn->query($query);
 $projets = [];
 if ($result) {
     while ($row = $result->fetch_assoc()) {
-        // Si pas d'image principale, utiliser une image par défaut selon le service
+        // Image par défaut si pas d'image
         if (empty($row['image_principale'])) {
-            switch ($row['service']) {
-                case 'marketing':
-                    $row['image_principale'] = '../assets/img/portfolio/default-marketing.jpg';
-                    break;
-                case 'graphique':
-                    $row['image_principale'] = '../assets/img/portfolio/default-graphique.jpg';
-                    break;
-                case 'multimedia':
-                    $row['image_principale'] = '../assets/img/portfolio/default-multimedia.jpg';
-                    break;
-                case 'imprimerie':
-                    $row['image_principale'] = '../assets/img/portfolio/default-imprimerie.jpg';
-                    break;
-                default:
-                    $row['image_principale'] = '../assets/img/portfolio/default.jpg';
-            }
+            $row['image_principale'] = '../assets/img/portfolio/default-' . $row['service'] . '.jpg';
         }
         $projets[] = $row;
     }
@@ -112,7 +100,6 @@ $message_type = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
-        // Sécuriser les données
         $projet_id = isset($_POST['projet_id']) ? intval($_POST['projet_id']) : 0;
         
         // Action: Mettre en avant un projet
@@ -124,227 +111,227 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("ii", $featured, $projet_id);
             
             if ($stmt->execute()) {
-                $message = $featured ? "Le projet a été mis en avant avec succès." : "Le projet n'est plus mis en avant.";
+                $message = $featured ? "Le projet a été mis en avant." : "Le projet n'est plus mis en avant.";
                 $message_type = "success";
-                
-                // Enregistrer dans les logs
                 logActivity($_SESSION['admin_id'], 'toggle_featured', 'projets', $projet_id, "Featured: " . ($featured ? 'Oui' : 'Non'));
             } else {
-                $message = "Erreur lors de la mise à jour du projet: " . $stmt->error;
-                $message_type = "danger";
+                $message = "Erreur lors de la mise à jour: " . $stmt->error;
+                $message_type = "error";
             }
             $stmt->close();
         }
         
-        // Action: Supprimer un projet du portfolio
+        // Action: Retirer du portfolio
         if ($_POST['action'] === 'remove_from_portfolio' && $projet_id > 0) {
             $query = "UPDATE projets SET in_portfolio = 0, date_modification = NOW() WHERE id = ?";
             $stmt = $conn->prepare($query);
             $stmt->bind_param("i", $projet_id);
             
             if ($stmt->execute()) {
-                $message = "Le projet a été retiré du portfolio avec succès.";
+                $message = "Le projet a été retiré du portfolio.";
                 $message_type = "success";
-                
-                // Enregistrer dans les logs
                 logActivity($_SESSION['admin_id'], 'remove_from_portfolio', 'projets', $projet_id, "Retiré du portfolio");
             } else {
-                $message = "Erreur lors de la suppression du projet du portfolio: " . $stmt->error;
-                $message_type = "danger";
+                $message = "Erreur lors de la suppression: " . $stmt->error;
+                $message_type = "error";
             }
             $stmt->close();
         }
     }
 }
 
-// Titre de la page
+// Récupérer les projets terminés non dans le portfolio
+$projets_disponibles = [];
+$query = "SELECT p.id, p.nom, d.nom as client_nom, d.entreprise, d.service, s.nom as service_nom
+          FROM projets p 
+          JOIN devis d ON p.devis_id = d.id 
+          LEFT JOIN services s ON d.service = s.slug
+          WHERE p.statut = 'termine' AND p.in_portfolio = 0
+          ORDER BY p.date_fin_reelle DESC
+          LIMIT 20";
+$result = $conn->query($query);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $projets_disponibles[] = $row;
+    }
+}
+
 $page_title = "Gestion du Portfolio";
+require_once 'header.php';
+require_once 'sidebar.php';
 ?>
 
-<?php // Inclure l'en-tête et la barre latérale
-require_once 'header.php';
-require_once 'sidebar.php'; ?>
-
 <main class="admin-main">
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-images mr-2"></i> Gestion du Portfolio
-        </h1>
-        <div>
-            <a href="#" class="btn btn-success mr-2" data-toggle="modal" data-target="#exportPortfolioModal">
+    <div class="content-header">
+        <div class="header-left">
+            <h1><i class="fas fa-images"></i> Gestion du Portfolio</h1>
+            <p>Gérez les projets affichés dans votre portfolio public</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="exportPortfolio()">
                 <i class="fas fa-file-export"></i> Exporter
-            </a>
-            <a href="#" class="btn btn-primary" data-toggle="modal" data-target="#addToPortfolioModal">
-                <i class="fas fa-plus-circle"></i> Ajouter au Portfolio
-            </a>
+            </button>
+            <button class="btn btn-primary" onclick="openModal('addToPortfolioModal')">
+                <i class="fas fa-plus"></i> Ajouter au Portfolio
+            </button>
         </div>
     </div>
 
     <?php if (!empty($message)): ?>
-        <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
+        <div class="alert alert-<?php echo $message_type; ?>">
+            <i class="fas fa-<?php echo $message_type === 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
             <?php echo $message; ?>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
         </div>
     <?php endif; ?>
 
     <!-- Statistiques -->
-    <div class="row mb-4">
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Projets dans le Portfolio</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['total_projets'] ?? 0; ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-images fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon bg-blue">
+                <i class="fas fa-images"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?php echo $stats['total_projets'] ?? 0; ?></h3>
+                <p>Projets au Portfolio</p>
             </div>
         </div>
-
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Projets Terminés</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['projets_termines'] ?? 0; ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-orange">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?php echo $stats['projets_featured'] ?? 0; ?></h3>
+                <p>Projets Mis en Avant</p>
             </div>
         </div>
-
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Services Représentés</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['services_distincts'] ?? 0; ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-tags fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-green">
+                <i class="fas fa-tags"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?php echo $stats['services_distincts'] ?? 0; ?></h3>
+                <p>Services Représentés</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon bg-purple">
+                <i class="fas fa-plus-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3><?php echo $stats['nouveaux_projets'] ?? 0; ?></h3>
+                <p>Nouveaux (30j)</p>
             </div>
         </div>
     </div>
 
-    <!-- Filtres et recherche -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Filtrer les Projets du Portfolio</h6>
+    <!-- Filtres -->
+    <div class="filters-bar">
+        <div class="filter-tabs">
+            <a href="?featured=-1" class="filter-tab <?php echo $featured_filter === -1 ? 'active' : ''; ?>">
+                Tous
+            </a>
+            <a href="?featured=1" class="filter-tab <?php echo $featured_filter === 1 ? 'active' : ''; ?>">
+                Mis en avant
+            </a>
+            <a href="?featured=0" class="filter-tab <?php echo $featured_filter === 0 ? 'active' : ''; ?>">
+                Standard
+            </a>
         </div>
-        <div class="card-body">
-            <form method="GET" action="" class="mb-4">
-                <div class="row">
-                    <div class="col-md-4 mb-2">
-                        <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Rechercher..." name="search" value="<?php echo htmlspecialchars($search); ?>">
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="submit">
-                                    <i class="fas fa-search fa-sm"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <select class="form-control" name="service" onchange="this.form.submit()">
-                            <option value="">Tous les services</option>
-                            <?php foreach ($services as $service): ?>
-                                <option value="<?php echo $service['slug']; ?>" <?php echo $service_filter === $service['slug'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($service['nom']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-2 mb-2">
-                        <select class="form-control" name="featured" onchange="this.form.submit()">
-                            <option value="-1" <?php echo $featured_filter === -1 ? 'selected' : ''; ?>>Tous</option>
-                            <option value="1" <?php echo $featured_filter === 1 ? 'selected' : ''; ?>>Mis en avant</option>
-                            <option value="0" <?php echo $featured_filter === 0 ? 'selected' : ''; ?>>Standard</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3 mb-2">
-                        <a href="portfolio.php" class="btn btn-secondary btn-block">Réinitialiser</a>
-                    </div>
-                </div>
+        <div class="filter-actions">
+            <form method="GET" class="filter-form">
+                <select name="service" class="filter-select" onchange="this.form.submit()">
+                    <option value="">Tous les services</option>
+                    <?php foreach ($services as $service): ?>
+                        <option value="<?php echo $service['slug']; ?>" <?php echo $service_filter === $service['slug'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($service['nom']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="text" name="search" class="filter-search" placeholder="Rechercher..." value="<?php echo htmlspecialchars($search); ?>">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                </button>
             </form>
         </div>
     </div>
 
     <!-- Portfolio Grid -->
-    <div class="row">
+    <div class="projects-grid">
         <?php if (empty($projets)): ?>
-            <div class="col-12">
-                <div class="alert alert-info">
-                    Aucun projet trouvé dans le portfolio avec les critères sélectionnés.
-                </div>
+            <div class="empty-state">
+                <i class="fas fa-images"></i>
+                <h3>Portfolio vide</h3>
+                <p>Aucun projet trouvé dans le portfolio avec les critères sélectionnés.</p>
+                <button class="btn btn-primary" onclick="openModal('addToPortfolioModal')">
+                    <i class="fas fa-plus"></i> Ajouter des projets
+                </button>
             </div>
         <?php else: ?>
             <?php foreach ($projets as $projet): ?>
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card portfolio-item shadow h-100">
-                        <?php if ($projet['featured']): ?>
-                            <div class="ribbon ribbon-top-right"><span>Mis en avant</span></div>
-                        <?php endif; ?>
-                        <div class="portfolio-img-container">
-                            <img src="<?php echo htmlspecialchars($projet['image_principale']); ?>" class="card-img-top portfolio-img" alt="<?php echo htmlspecialchars($projet['nom']); ?>">
+                <div class="project-card portfolio-item">
+                    <?php if ($projet['featured']): ?>
+                        <div class="featured-badge">
+                            <i class="fas fa-star"></i> Mis en avant
                         </div>
-                        <div class="card-body">
-                            <h5 class="card-title font-weight-bold"><?php echo htmlspecialchars($projet['nom']); ?></h5>
-                            <p class="card-text text-muted mb-1">
-                                <small>Client: <?php echo htmlspecialchars($projet['client_nom']); ?> 
-                                <?php if (!empty($projet['entreprise'])): ?>
-                                    (<?php echo htmlspecialchars($projet['entreprise']); ?>)
-                                <?php endif; ?>
-                                </small>
-                            </p>
-                            <p class="card-text">
-                                <?php 
-                                $service_name = '';
-                                foreach ($services as $service) {
-                                    if ($service['slug'] === $projet['service']) {
-                                        $service_name = $service['nom'];
-                                        break;
-                                    }
-                                }
-                                ?>
-                                <span class="badge badge-primary"><?php echo htmlspecialchars($service_name); ?></span>
-                                <span class="badge badge-secondary"><?php echo $projet['date_fin_reelle'] ? date('d/m/Y', strtotime($projet['date_fin_reelle'])) : 'N/A'; ?></span>
-                            </p>
-                            <p class="card-text">
-                                <?php echo substr(htmlspecialchars($projet['description']), 0, 100); ?>...
-                            </p>
+                    <?php endif; ?>
+                    
+                    <div class="project-image">
+                        <img src="<?php echo htmlspecialchars($projet['image_principale']); ?>" 
+                             alt="<?php echo htmlspecialchars($projet['nom']); ?>"
+                             onerror="this.src='../assets/img/portfolio/default.jpg'">
+                        <div class="image-overlay">
+                            <button class="btn btn-sm btn-primary" onclick="viewProject(<?php echo $projet['id']; ?>)">
+                                <i class="fas fa-eye"></i> Voir
+                            </button>
                         </div>
-                        <div class="card-footer bg-transparent border-0">
-                            <div class="btn-group w-100">
-                                <button type="button" class="btn btn-sm btn-primary" onclick="viewProject(<?php echo $projet['id']; ?>)">
-                                    <i class="fas fa-eye"></i> Voir
-                                </button>
-                                <button type="button" class="btn btn-sm btn-<?php echo $projet['featured'] ? 'warning' : 'success'; ?>" onclick="toggleFeatured(<?php echo $projet['id']; ?>, <?php echo $projet['featured'] ? 0 : 1; ?>)">
-                                    <i class="fas fa-<?php echo $projet['featured'] ? 'star' : 'star'; ?>"></i> 
-                                    <?php echo $projet['featured'] ? 'Retirer' : 'Mettre en avant'; ?>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-danger" onclick="confirmRemoveFromPortfolio(<?php echo $projet['id']; ?>, '<?php echo addslashes($projet['nom']); ?>')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                    </div>
+                    
+                    <div class="project-content">
+                        <div class="project-header">
+                            <h4><?php echo htmlspecialchars($projet['nom']); ?></h4>
+                            <span class="service-badge"><?php echo htmlspecialchars($projet['service_nom']); ?></span>
+                        </div>
+                        
+                        <div class="project-client">
+                            <i class="fas fa-user"></i>
+                            <span><?php echo htmlspecialchars($projet['client_nom']); ?></span>
+                            <?php if (!empty($projet['entreprise'])): ?>
+                                <small>(<?php echo htmlspecialchars($projet['entreprise']); ?>)</small>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="project-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-calendar"></i>
+                                <span><?php echo $projet['date_fin_reelle'] ? date('d/m/Y', strtotime($projet['date_fin_reelle'])) : 'N/A'; ?></span>
                             </div>
+                            <?php if ($projet['montant_final']): ?>
+                            <div class="meta-item">
+                                <i class="fas fa-euro-sign"></i>
+                                <span><?php echo number_format($projet['montant_final'], 0, ',', ' '); ?> FCFA</span>
+                            </div>
+                            <?php endif; ?>
                         </div>
+                        
+                        <?php if (!empty($projet['description'])): ?>
+                        <div class="project-description">
+                            <?php echo substr(htmlspecialchars($projet['description']), 0, 120); ?>...
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="project-actions">
+                        <button class="btn btn-sm btn-outline" onclick="viewProject(<?php echo $projet['id']; ?>)">
+                            <i class="fas fa-eye"></i> Voir
+                        </button>
+                        <button class="btn btn-sm btn-<?php echo $projet['featured'] ? 'warning' : 'success'; ?>" 
+                                onclick="toggleFeatured(<?php echo $projet['id']; ?>, <?php echo $projet['featured'] ? 0 : 1; ?>)">
+                            <i class="fas fa-star"></i> 
+                            <?php echo $projet['featured'] ? 'Retirer' : 'Mettre en avant'; ?>
+                        </button>
+                        <button class="btn btn-sm btn-outline" onclick="removeFromPortfolio(<?php echo $projet['id']; ?>, '<?php echo addslashes($projet['nom']); ?>')">
+                            <i class="fas fa-trash"></i> Retirer
+                        </button>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -353,316 +340,254 @@ require_once 'sidebar.php'; ?>
 
     <!-- Pagination -->
     <?php if ($total_pages > 1): ?>
-        <div class="row mt-4">
-            <div class="col-12">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>&service=<?php echo urlencode($service_filter); ?>&featured=<?php echo $featured_filter; ?>" aria-label="Précédent">
-                                <span aria-hidden="true">&laquo;</span>
-                            </a>
-                        </li>
-                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                            <li class="page-item <?php echo $page == $i ? 'active' : ''; ?>">
-                                <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&service=<?php echo urlencode($service_filter); ?>&featured=<?php echo $featured_filter; ?>">
-                                    <?php echo $i; ?>
-                                </a>
-                            </li>
-                        <?php endfor; ?>
-                        <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>&service=<?php echo urlencode($service_filter); ?>&featured=<?php echo $featured_filter; ?>" aria-label="Suivant">
-                                <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
+        <div class="pagination-container">
+            <div class="pagination">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&service=<?php echo urlencode($service_filter); ?>&featured=<?php echo $featured_filter; ?>" 
+                       class="<?php echo $page == $i ? 'active' : ''; ?>">
+                        <?php echo $i; ?>
+                    </a>
+                <?php endfor; ?>
             </div>
         </div>
     <?php endif; ?>
-</div>
-
-<!-- Modal Ajouter au Portfolio -->
-<div class="modal fade" id="addToPortfolioModal" tabindex="-1" role="dialog" aria-labelledby="addToPortfolioModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addToPortfolioModalLabel">Ajouter un Projet au Portfolio</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="searchProjects" placeholder="Rechercher un projet...">
-                </div>
-                <div id="projectsList" class="mt-3">
-                    <div class="text-center">
-                        <p>Recherchez un projet terminé pour l'ajouter au portfolio.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Exporter Portfolio -->
-<div class="modal fade" id="exportPortfolioModal" tabindex="-1" role="dialog" aria-labelledby="exportPortfolioModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="exportPortfolioModalLabel">Exporter le Portfolio</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="exportForm" method="POST" action="ajax/export_portfolio.php">
-                    <div class="form-group">
-                        <label for="export_format">Format d'export</label>
-                        <select class="form-control" id="export_format" name="format">
-                            <option value="pdf">PDF</option>
-                            <option value="excel">Excel</option>
-                            <option value="json">JSON</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="export_service">Service (optionnel)</label>
-                        <select class="form-control" id="export_service" name="service">
-                            <option value="">Tous les services</option>
-                            <?php foreach ($services as $service): ?>
-                                <option value="<?php echo $service['slug']; ?>">
-                                    <?php echo htmlspecialchars($service['nom']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="export_featured" name="featured" value="1">
-                            <label class="custom-control-label" for="export_featured">Uniquement les projets mis en avant</label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="export_images" name="include_images" value="1">
-                            <label class="custom-control-label" for="export_images">Inclure les images (PDF uniquement)</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="document.getElementById('exportForm').submit();">Exporter</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Voir Projet -->
-<div class="modal fade" id="viewProjectModal" tabindex="-1" role="dialog" aria-labelledby="viewProjectModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewProjectModalLabel">Détails du Projet</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" id="viewProjectContent">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="sr-only">Chargement...</span>
-                    </div>
-                    <p class="mt-2">Chargement des détails du projet...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
-                <a href="#" id="editProjectLink" class="btn btn-primary">Éditer</a>
-            </div>
-        </div>
-    </div>
-</div>
 </main>
 
+<!-- Modal Ajouter au Portfolio -->
+<div class="modal" id="addToPortfolioModal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3>Ajouter des Projets au Portfolio</h3>
+            <button class="close" onclick="closeModal('addToPortfolioModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <input type="text" id="searchProjects" class="filter-search" placeholder="Rechercher un projet terminé...">
+            </div>
+            <div id="projectsList" class="projects-list">
+                <?php if (empty($projets_disponibles)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Aucun projet terminé disponible pour le portfolio.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($projets_disponibles as $projet): ?>
+                        <div class="project-item">
+                            <div class="project-info">
+                                <h5><?php echo htmlspecialchars($projet['nom']); ?></h5>
+                                <p><?php echo htmlspecialchars($projet['client_nom']); ?> - <?php echo htmlspecialchars($projet['service_nom']); ?></p>
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="addToPortfolio(<?php echo $projet['id']; ?>)">
+                                <i class="fas fa-plus"></i> Ajouter
+                            </button>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
 
-<!-- CSS personnalisé pour le portfolio -->
 <style>
-.portfolio-img-container {
-    height: 200px;
-    overflow: hidden;
+.portfolio-item {
     position: relative;
 }
 
-.portfolio-img {
+.featured-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--admin-warning);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--admin-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    z-index: 1;
+}
+
+.project-image {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+    border-radius: var(--admin-radius-lg) var(--admin-radius-lg) 0 0;
+}
+
+.project-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
 }
 
-.portfolio-item:hover .portfolio-img {
+.project-image:hover img {
     transform: scale(1.05);
 }
 
-.ribbon {
-    width: 150px;
-    height: 150px;
-    overflow: hidden;
+.image-overlay {
     position: absolute;
-    z-index: 1;
-}
-
-.ribbon-top-right {
-    top: -10px;
-    right: -10px;
-}
-
-.ribbon-top-right::before,
-.ribbon-top-right::after {
-    border-top-color: transparent;
-    border-right-color: transparent;
-}
-
-.ribbon-top-right::before {
     top: 0;
     left: 0;
-}
-
-.ribbon-top-right::after {
-    bottom: 0;
     right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.ribbon span {
-    position: absolute;
-    display: block;
-    width: 225px;
-    padding: 15px 0;
-    background-color: #e74c3c;
-    box-shadow: 0 5px 10px rgba(0,0,0,.1);
-    color: #fff;
-    font: 700 18px/1 'Lato', sans-serif;
-    text-shadow: 0 1px 1px rgba(0,0,0,.2);
-    text-transform: uppercase;
-    text-align: center;
+.project-image:hover .image-overlay {
+    opacity: 1;
 }
 
-.ribbon-top-right span {
-    right: -25px;
-    top: 30px;
-    transform: rotate(45deg);
+.project-client {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-sm);
+    margin: var(--admin-space-md) 0;
+    font-size: 0.875rem;
+    color: var(--admin-text-secondary);
 }
 
-.portfolio-item {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+.project-meta {
+    display: flex;
+    gap: var(--admin-space-lg);
+    margin: var(--admin-space-md) 0;
 }
 
-.portfolio-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-xs);
+    font-size: 0.75rem;
+    color: var(--admin-text-muted);
+}
+
+.project-description {
+    font-size: 0.875rem;
+    color: var(--admin-text-secondary);
+    line-height: 1.4;
+    margin: var(--admin-space-md) 0;
+}
+
+.projects-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.project-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--admin-space-md);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    margin-bottom: var(--admin-space-sm);
+}
+
+.project-item:hover {
+    background: var(--admin-border-light);
+}
+
+.project-info h5 {
+    margin: 0 0 var(--admin-space-xs) 0;
+    font-size: 1rem;
+}
+
+.project-info p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--admin-text-secondary);
 }
 </style>
 
-<!-- JavaScript pour les interactions -->
 <script>
-// Fonction pour voir les détails d'un projet
-function viewProject(id) {
-    const modal = $('#viewProjectModal');
-    const content = $('#viewProjectContent');
-    
-    // Afficher le modal avec un spinner de chargement
-    modal.modal('show');
-    content.html('<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="sr-only">Chargement...</span></div><p class="mt-2">Chargement des détails du projet...</p></div>');
-    
-    // Mettre à jour le lien d'édition
-    $('#editProjectLink').attr('href', 'edit_projet.php?id=' + id);
-    
-    // Charger les détails du projet via AJAX
-    $.ajax({
-        url: 'ajax/get_projet_details.php',
-        type: 'GET',
-        data: { id: id },
-        success: function(response) {
-            content.html(response);
-        },
-        error: function() {
-            content.html('<div class="alert alert-danger">Erreur lors du chargement des détails du projet.</div>');
-        }
-    });
+// Fonctions JavaScript
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'flex';
 }
 
-// Fonction pour mettre en avant ou retirer un projet
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function viewProject(id) {
+    window.location.href = 'projet-details.php?id=' + id;
+}
+
 function toggleFeatured(id, featured) {
-    const form = $('<form method="POST" action="">' +
-        '<input type="hidden" name="action" value="toggle_featured">' +
-        '<input type="hidden" name="projet_id" value="' + id + '">' +
-        '<input type="hidden" name="featured" value="' + featured + '">' +
-        '</form>');
-    $('body').append(form);
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        <input type="hidden" name="action" value="toggle_featured">
+        <input type="hidden" name="projet_id" value="${id}">
+        <input type="hidden" name="featured" value="${featured}">
+    `;
+    document.body.appendChild(form);
     form.submit();
 }
 
-// Fonction pour confirmer la suppression d'un projet du portfolio
-function confirmRemoveFromPortfolio(id, nom) {
-    if (confirm('Êtes-vous sûr de vouloir retirer le projet "' + nom + '" du portfolio ?')) {
-        const form = $('<form method="POST" action="">' +
-            '<input type="hidden" name="action" value="remove_from_portfolio">' +
-            '<input type="hidden" name="projet_id" value="' + id + '">' +
-            '</form>');
-        $('body').append(form);
+function removeFromPortfolio(id, nom) {
+    if (confirm(`Êtes-vous sûr de vouloir retirer "${nom}" du portfolio ?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="remove_from_portfolio">
+            <input type="hidden" name="projet_id" value="${id}">
+        `;
+        document.body.appendChild(form);
         form.submit();
     }
 }
 
-// Recherche de projets pour ajout au portfolio
-$('#searchProjects').on('input', function() {
-    const search = $(this).val();
-    if (search.length >= 2) {
-        $.ajax({
-            url: 'ajax/search_projects_for_portfolio.php',
-            type: 'GET',
-            data: { search: search },
-            success: function(response) {
-                $('#projectsList').html(response);
-            },
-            error: function() {
-                $('#projectsList').html('<div class="alert alert-danger">Erreur lors de la recherche.</div>');
-            }
-        });
-    } else {
-        $('#projectsList').html('<div class="text-center"><p>Recherchez un projet terminé pour l\'ajouter au portfolio.</p></div>');
-    }
-});
-
-// Fonction pour ajouter un projet au portfolio
 function addToPortfolio(id) {
-    $.ajax({
-        url: 'ajax/add_to_portfolio.php',
-        type: 'POST',
-        data: { projet_id: id },
-        success: function(response) {
-            const result = JSON.parse(response);
-            if (result.success) {
-                alert('Projet ajouté au portfolio avec succès.');
-                $('#addToPortfolioModal').modal('hide');
-                location.reload();
-            } else {
-                alert('Erreur: ' + result.message);
-            }
+    fetch('ajax/add_to_portfolio.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        error: function() {
-            alert('Erreur lors de l\'ajout du projet au portfolio.');
+        body: JSON.stringify({
+            projet_id: id
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Projet ajouté au portfolio avec succès.');
+            closeModal('addToPortfolioModal');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.message);
         }
+    })
+    .catch(error => {
+        alert('Erreur lors de l\'ajout du projet au portfolio.');
     });
 }
+
+function exportPortfolio() {
+    window.open('ajax/export_portfolio.php', '_blank');
+}
+
+// Recherche de projets
+document.getElementById('searchProjects')?.addEventListener('input', function() {
+    const search = this.value.toLowerCase();
+    const items = document.querySelectorAll('.project-item');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(search) ? 'flex' : 'none';
+    });
+});
+
+// Fermer les modals en cliquant à l'extérieur
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+    }
+});
 </script>
 
-<?php
-// Fermer la connexion à la base de données
-$conn->close();
-?>
-
+<?php $conn->close(); ?>

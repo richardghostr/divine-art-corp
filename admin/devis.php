@@ -938,14 +938,5 @@ document.addEventListener('click', function(event) {
 </script>
 
 <style>
-.section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--admin-space-xl);
-    padding: var(--admin-space-lg);
-    background: var(--admin-card-bg);
-    border-radius: var(--admin-radius-xl);
-    box-shadow: var(--admin-shadow-sm);
-}
+
 </style>

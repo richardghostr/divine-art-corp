@@ -106,31 +106,37 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
     <!-- Header Admin -->
     <header class="admin-header">
         <div class="admin-header-content">
+            <!-- Menu Toggle pour mobile -->
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            
             <!-- Logo et Brand -->
             <div class="admin-brand">
                 <div class="admin-logo">
-<img src="../assets/images/Logo.svg" alt="">                </div>
+                    <img src="../assets/images/Logo.svg" alt="Divine Art Corp">
+                </div>
                 <span class="admin-brand-text">Divine Art Corp</span>
             </div>
             
-            <!-- Navigation Header -->
-            <nav class="admin-header-nav">
+            <!-- Navigation Header (cachée sur mobile) -->
+            <nav class="admin-header-nav ">
                 <a href="../index.php" class="nav-link" target="_blank">
                     <i class="fas fa-globe"></i>
-                    Site Web
+                    <span>Site Web</span>
                 </a>
                 <a href="#" class="nav-link">
                     <i class="fas fa-chart-line"></i>
-                    Analytics
+                    <span>Analytics</span>
                 </a>
                 <a href="settings.php" class="nav-link">
                     <i class="fas fa-cog"></i>
-                    Paramètres
+                    <span>Paramètres</span>
                 </a>
             </nav>
             
-            <!-- Barre de recherche -->
-            <div class="admin-search">
+            <!-- Barre de recherche (cachée sur mobile) -->
+            <div class="admin-search hidden-mobile">
                 <div class="search-container">
                     <i class="fas fa-search search-icon"></i>
                     <input type="text" placeholder="Rechercher..." class="search-input" id="globalSearch">
@@ -139,16 +145,19 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
             
             <!-- Actions utilisateur -->
             <div class="admin-user-actions">
-                  
+                <!-- Notifications -->
+               
+                <!-- Menu utilisateur -->
                 <div class="user-menu" id="userMenu">
-                    <div class="user-avatar">
+                    <div class="user-avatar" id="">
                         <i class="fas fa-user-circle"></i>
                     </div>
-                    <div class="user-info">
+                    <div class="user-info " id="">
                         <span class="user-name"><?php echo htmlspecialchars($user_name); ?></span>
                         <span class="user-role"><?php echo ucfirst($current_user['role'] ?? 'Administrateur'); ?></span>
                     </div>
-                    <button class="user-dropdown-btn" id="userDropdownBtn">
+                    <button class="user-dropdown-btn" id="userDropdownBtn" aria-label="User menu">
+                        <i class="fas fa-chevron-down"></i>
                     </button>
                 </div>
                 
@@ -172,12 +181,36 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
         </div>
     </header>
 
+    <!-- Overlay pour sidebar mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- Layout Principal -->
     <div class="admin-layout">
         
         <script>
-        // Gestion des dropdowns
+        // Gestion des dropdowns et menu mobile
         document.addEventListener('DOMContentLoaded', function() {
+            // Menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.querySelector('.admin-sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                    sidebarOverlay.classList.toggle('active');
+                    document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+                });
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                });
+            }
+            
             // Dropdown utilisateur
             const userDropdownBtn = document.getElementById('userDropdownBtn');
             const userDropdown = document.getElementById('userDropdown');
@@ -186,33 +219,12 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                 userDropdownBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     userDropdown.style.display = userDropdown.style.display === 'none' ? 'block' : 'none';
-                    // Fermer les notifications si ouvertes
-                    const notificationDropdown = document.getElementById('notificationDropdown');
-                    if (notificationDropdown) {
-                        notificationDropdown.style.display = 'none';
-                    }
-                });
-            }
-            
-            // Dropdown notifications
-            const notificationBtn = document.getElementById('notificationBtn');
-            const notificationDropdown = document.getElementById('notificationDropdown');
-            
-            if (notificationBtn && notificationDropdown) {
-                notificationBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    notificationDropdown.style.display = notificationDropdown.style.display === 'none' ? 'block' : 'none';
-                    // Fermer le menu utilisateur si ouvert
-                    if (userDropdown) {
-                        userDropdown.style.display = 'none';
-                    }
                 });
             }
             
             // Fermer les dropdowns en cliquant ailleurs
             document.addEventListener('click', function() {
                 if (userDropdown) userDropdown.style.display = 'none';
-                if (notificationDropdown) notificationDropdown.style.display = 'none';
             });
             
             // Recherche globale
@@ -227,6 +239,20 @@ $total_notifications = array_sum(array_column($notifications, 'count'));
                     }
                 });
             }
+            
+            // Gestion responsive
+            function handleResize() {
+                if (window.innerWidth > 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
+            
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', function() {
+                setTimeout(handleResize, 100);
+            });
         });
         </script>
 <?php endif; ?>

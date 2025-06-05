@@ -25,16 +25,25 @@ $marketing_query = "SELECT d.*, p.id as projet_id, p.statut as projet_statut, p.
 $marketing_result = mysqli_query($conn, $marketing_query);
 
 // Statistiques marketing
+// Modifier la requête avec COALESCE pour les valeurs nulles
 $stats_query = "SELECT 
-    COUNT(*) as total_projets,
-    SUM(CASE WHEN d.statut = 'termine' THEN 1 ELSE 0 END) as projets_termines,
-    SUM(CASE WHEN d.statut = 'en_cours' THEN 1 ELSE 0 END) as projets_en_cours,
+    COALESCE(COUNT(*), 0) as total_projets,
+    COALESCE(SUM(CASE WHEN d.statut = 'termine' THEN 1 ELSE 0 END), 0) as projets_termines,
+    COALESCE(SUM(CASE WHEN d.statut = 'en_cours' THEN 1 ELSE 0 END), 0) as projets_en_cours,
     COALESCE(SUM(d.montant_final), 0) as ca_total,
     COALESCE(AVG(d.montant_final), 0) as montant_moyen
 FROM devis d WHERE d.service = 'marketing'";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
-
+$stats = is_array($stats) ? $stats : [];
+$defaultStats = [
+    'total_projets' => 0,
+    'projets_termines' => 0,
+    'projets_en_cours' => 0,
+    'ca_total' => 0,
+    'montant_moyen' => 0
+];
+$stats = array_merge($defaultStats, $stats);
 // Sous-services marketing les plus demandés
 $sous_services_query = "SELECT sous_service, COUNT(*) as count 
                        FROM devis 
@@ -114,11 +123,19 @@ include 'header.php';
                 </div>
                 <div class="card-content">
                     <div class="services-chart">
-                        <?php while ($service = mysqli_fetch_assoc($sous_services_result)): ?>
+                        <?php
+                        // Réinitialiser le pointeur du résultat
+                        mysqli_data_seek($sous_services_result, 0);
+
+                        while ($service = mysqli_fetch_assoc($sous_services_result)):
+                            // CORRECTION : Vérification robuste
+                            // $total = $stats['total_projets'] ?: 1; // Évite division par zéro
+                            // $width = ($service['count'] / $total) * 100;
+                        ?>
                             <div class="service-item">
                                 <div class="service-name"><?php echo htmlspecialchars($service['sous_service']); ?></div>
                                 <div class="service-bar">
-                                    <div class="service-progress" style="width: <?php echo ($service['count'] / $stats['total_projets']) * 100; ?>%"></div>
+                                    <div class="service-progress" style="width: <?php echo $width; ?>%"></div>
                                 </div>
                                 <div class="service-count"><?php echo $service['count']; ?></div>
                             </div>
@@ -126,6 +143,7 @@ include 'header.php';
                     </div>
                 </div>
             </div>
+
 
             <div class="dashboard-card">
                 <div class="card-header">
@@ -396,320 +414,5 @@ include 'header.php';
 </script>
 
 <style>
-    /* ========================================
-   MARKETING PAGE SPECIFIC STYLES
-   ======================================== */
-
-/* Content Header Styles */
-.content-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--admin-space-2xl);
-  padding: var(--admin-space-lg);
-  background: var(--admin-card-bg);
-  border-radius: var(--admin-radius-xl);
-  box-shadow: var(--admin-shadow-sm);
-}
-
-.header-left h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--admin-text-primary);
-  margin-bottom: var(--admin-space-xs);
-}
-
-.header-left p {
-  color: var(--admin-text-secondary);
-  font-size: 1rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: var(--admin-space-md);
-}
-
-/* Services Chart Styles */
-.services-chart {
-  display: flex;
-  flex-direction: column;
-  gap: var(--admin-space-md);
-}
-
-.service-item {
-  display: flex;
-  align-items: center;
-  gap: var(--admin-space-md);
-  padding: var(--admin-space-sm) 0;
-}
-
-.service-name {
-  min-width: 150px;
-  font-size: 0.875rem;
-  color: var(--admin-text-primary);
-}
-
-.service-bar {
-  flex: 1;
-  height: 10px;
-  background: var(--admin-border-light);
-  border-radius: var(--admin-radius-sm);
-  overflow: hidden;
-}
-
-.service-progress {
-  height: 100%;
-  background: linear-gradient(90deg, var(--admin-accent) 0%, #c0392b 100%);
-  border-radius: var(--admin-radius-sm);
-}
-
-.service-count {
-  min-width: 30px;
-  text-align: right;
-  font-weight: 600;
-  color: var(--admin-text-primary);
-}
-
-/* Quick Actions Styles */
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--admin-space-md);
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--admin-space-lg);
-  background: var(--admin-border-light);
-  border: none;
-  border-radius: var(--admin-radius-lg);
-  cursor: pointer;
-  transition: var(--admin-transition);
-  text-align: center;
-}
-
-.action-btn:hover {
-  background: var(--admin-accent);
-  color: white;
-  transform: translateY(-3px);
-}
-
-.action-btn i {
-  font-size: 1.5rem;
-  margin-bottom: var(--admin-space-sm);
-}
-
-.action-btn span {
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-/* Project Details Styles */
-.project-details {
-  padding: var(--admin-space-lg) 0;
-}
-
-.detail-row {
-  display: flex;
-  margin-bottom: var(--admin-space-sm);
-}
-
-.detail-row .label {
-  min-width: 100px;
-  font-weight: 600;
-  color: var(--admin-text-primary);
-}
-
-.detail-row .value {
-  flex: 1;
-  color: var(--admin-text-secondary);
-}
-
-.progress-container {
-  display: flex;
-  align-items: center;
-  gap: var(--admin-space-md);
-}
-
-.progress-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--admin-border-light);
-  border-radius: var(--admin-radius-sm);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--admin-info) 0%, #2980b9 100%);
-  border-radius: var(--admin-radius-sm);
-}
-
-.progress-text {
-  font-weight: 600;
-  color: var(--admin-text-primary);
-}
-
-.project-description {
-  margin: var(--admin-space-lg) 0;
-  padding: var(--admin-space-md);
-  background: var(--admin-border-light);
-  border-radius: var(--admin-radius-md);
-  font-size: 0.875rem;
-  color: var(--admin-text-secondary);
-}
-
-/* Section Header Styles */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--admin-space-xl);
-}
-
-.section-filters select {
-  padding: var(--admin-space-sm) var(--admin-space-md);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-card-bg);
-  color: var(--admin-text-primary);
-}
-
-/* Status Badges */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--admin-radius-sm);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.status-nouveau {
-  background: rgba(52, 152, 219, 0.1);
-  color: var(--admin-info);
-}
-
-.status-en_cours {
-  background: rgba(243, 156, 18, 0.1);
-  color: var(--admin-warning);
-}
-
-.status-termine {
-  background: rgba(39, 174, 96, 0.1);
-  color: var(--admin-success);
-}
-
-.status-annule {
-  background: rgba(231, 76, 60, 0.1);
-  color: var(--admin-danger);
-}
-
-/* Modal Styles */
-.modal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2000;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-content {
-  background: var(--admin-card-bg);
-  width: 90%;
-  max-width: 600px;
-  border-radius: var(--admin-radius-xl);
-  box-shadow: var(--admin-shadow-lg);
-  overflow: hidden;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--admin-space-lg);
-  border-bottom: 1px solid var(--admin-border-light);
-}
-
-.modal-header h2 {
-  font-size: 1.5rem;
-  color: var(--admin-text-primary);
-}
-
-.modal-header .close {
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--admin-text-secondary);
-}
-
-.modal-header .close:hover {
-  color: var(--admin-text-primary);
-}
-
-.modal-body {
-  padding: var(--admin-space-lg);
-}
-
-.form-group {
-  margin-bottom: var(--admin-space-lg);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--admin-space-sm);
-  font-weight: 500;
-  color: var(--admin-text-primary);
-}
-
-.form-group select,
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: var(--admin-space-md);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-bg);
-  color: var(--admin-text-primary);
-}
-
-.form-actions {
-  display: flex;
-  gap: var(--admin-space-md);
-  justify-content: flex-end;
-  margin-top: var(--admin-space-xl);
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .content-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--admin-space-lg);
-  }
   
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .quick-actions {
-    grid-template-columns: 1fr;
-  }
-  
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--admin-space-md);
-  }
-}
 </style>

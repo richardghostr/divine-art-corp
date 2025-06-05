@@ -70,8 +70,7 @@ if ($storage_used_bytes == 0) {
 }
 ?>
 
-<aside class="admin-sidebar">
-  
+<aside class="admin-sidebar" id="adminSidebar" role="navigation" aria-label="Menu principal">
     <nav class="sidebar-nav">
         <?php foreach ($nav_items as $section_key => $section): ?>
             <div class="nav-section">
@@ -80,11 +79,13 @@ if ($storage_used_bytes == 0) {
                     <?php foreach ($section['items'] as $item): ?>
                         <li class="nav-item">
                             <a href="<?php echo $item['file']; ?>" 
-                               class="nav-link <?php echo ($current_page === $item['file']) ? 'active' : ''; ?>">
-                                <i class="<?php echo $item['icon']; ?> nav-icon"></i>
+                               class="nav-link <?php echo ($current_page === $item['file']) ? 'active' : ''; ?>"
+                               role="menuitem"
+                               <?php if ($item['badge']): ?>aria-describedby="badge-<?php echo $item['file']; ?>"<?php endif; ?>>
+                                <i class="<?php echo $item['icon']; ?> nav-icon" aria-hidden="true"></i>
                                 <span class="nav-text"><?php echo $item['text']; ?></span>
                                 <?php if ($item['badge']): ?>
-                                    <span class="nav-badge"><?php echo $item['badge']; ?></span>
+                                    <span class="nav-badge" id="badge-<?php echo $item['file']; ?>" aria-label="<?php echo $item['badge']; ?> nouveaux éléments"><?php echo $item['badge']; ?></span>
                                 <?php endif; ?>
                             </a>
                         </li>
@@ -95,8 +96,23 @@ if ($storage_used_bytes == 0) {
     </nav>
     
     <div class="sidebar-footer">
-        <a href="logout.php" class="logout-btn" onclick="return confirm('Êtes-vous sûr de vouloir vous déconnecter ?')">
-            <i class="fas fa-sign-out-alt"></i>
+        <!-- Informations de stockage -->
+        <div class="storage-info">
+            <div class="storage-header">
+                <i class="fas fa-hdd"></i>
+                <span>Stockage</span>
+            </div>
+            <div class="storage-bar">
+                <div class="storage-progress" style="width: <?php echo $storage_used_percent; ?>%"></div>
+            </div>
+            <div class="storage-text">
+                <?php echo $storage_used_gb; ?> GB / <?php echo $storage_total_gb; ?> GB utilisés
+            </div>
+        </div>
+        
+        <!-- Bouton de déconnexion -->
+        <a href="logout.php" class="logout-btn" onclick="return confirm('Êtes-vous sûr de vouloir vous déconnecter ?')" role="button">
+            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
             <span>Déconnexion</span>
         </a>
     </div>
@@ -126,12 +142,34 @@ function updateBadge(page, count) {
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'nav-badge';
+                badge.setAttribute('aria-label', count + ' nouveaux éléments');
                 link.appendChild(badge);
             }
             badge.textContent = count;
+            badge.setAttribute('aria-label', count + ' nouveaux éléments');
         } else if (badge) {
             badge.remove();
         }
     }
 }
+
+// Gestion de la navigation au clavier dans la sidebar
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('adminSidebar');
+    const navLinks = sidebar.querySelectorAll('.nav-link');
+    
+    navLinks.forEach((link, index) => {
+        link.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const nextIndex = (index + 1) % navLinks.length;
+                navLinks[nextIndex].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const prevIndex = (index - 1 + navLinks.length) % navLinks.length;
+                navLinks[prevIndex].focus();
+            }
+        });
+    });
+});
 </script>
