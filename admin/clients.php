@@ -307,22 +307,36 @@ include 'header.php';
         <!-- Liste des clients -->
         <div class="clients-grid">
             <?php while ($client = mysqli_fetch_assoc($clients)): ?>
-                <div class="client-card">
+               <div class="client-card" data-client-id="<?php echo $client['id']; ?>">
                     <div class="client-header">
                         <div class="client-avatar">
-                            <i class="fas fa-user"></i>
+                            <img src="/assets/images/avatars/<?php echo $client['id']; ?>.jpg" 
+                                 alt="Avatar" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="avatar-fallback" style="display: none;">
+                                <?php echo strtoupper(substr($client['nom'], 0, 1)); ?>
+                            </div>
                         </div>
                         <div class="client-info">
                             <h3><?php echo htmlspecialchars($client['nom']); ?></h3>
-                            <p><?php echo htmlspecialchars($client['email']); ?></p>
+                            <p class="client-email"><?php echo htmlspecialchars($client['email']); ?></p>
                             <?php if ($client['entreprise']): ?>
-                                <p class="company"><?php echo htmlspecialchars($client['entreprise']); ?></p>
+                                <p class="client-company"><?php echo htmlspecialchars($client['entreprise']); ?></p>
                             <?php endif; ?>
                         </div>
                         <div class="client-status">
-                            <span class="status-badge status-<?php echo $client['statut']; ?>">
-                                <?php echo ucfirst(str_replace('_', ' ', $client['statut'])); ?>
-                            </span>
+                            <div class="status-dropdown">
+                                <button class="status-badge <?php echo $client['statut']; ?>" onclick="toggleStatusDropdown(<?php echo $client['id']; ?>)">
+                                    <?php echo ucfirst(str_replace('_', ' ', $client['statut'])); ?>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="status-menu" id="status-menu-<?php echo $client['id']; ?>">
+                                    <a onclick="updateClientStatus(<?php echo $client['id']; ?>, 'prospect')">Prospect</a>
+                                    <a onclick="updateClientStatus(<?php echo $client['id']; ?>, 'client')">Client</a>
+                                    <a onclick="updateClientStatus(<?php echo $client['id']; ?>, 'client_vip')">Client VIP</a>
+                                    <a onclick="updateClientStatus(<?php echo $client['id']; ?>, 'inactif')">Inactif</a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -331,6 +345,9 @@ include 'header.php';
                             <div class="detail-item">
                                 <i class="fas fa-phone"></i>
                                 <span><?php echo htmlspecialchars($client['telephone']); ?></span>
+                                <a href="tel:<?php echo $client['telephone']; ?>" class="detail-action">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
                             </div>
                         <?php endif; ?>
                         
@@ -347,33 +364,70 @@ include 'header.php';
                                 <span><?php echo htmlspecialchars($client['secteur_activite']); ?></span>
                             </div>
                         <?php endif; ?>
+                        
+                        <?php if ($client['poste']): ?>
+                            <div class="detail-item">
+                                <i class="fas fa-briefcase"></i>
+                                <span><?php echo htmlspecialchars($client['poste']); ?></span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     
-                    <div class="client-stats">
-                        <div class="stat-item">
-                            <span class="stat-value"><?php echo $client['nb_devis']; ?></span>
-                            <span class="stat-label">Devis</span>
+                    <div class="client-metrics">
+                        <div class="metric-item">
+                            <div class="metric-value"><?php echo $client['nb_devis']; ?></div>
+                            <div class="metric-label">Devis</div>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-value"><?php echo number_format($client['ca_reel'] ?: 0, 0, ',', ' '); ?></span>
-                            <span class="stat-label">CA (FCFA)</span>
+                        <div class="metric-item">
+                            <div class="metric-value"><?php echo $client['nb_projets']; ?></div>
+                            <div class="metric-label">Projets</div>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-value"><?php echo $client['date_premier_contact'] ? date('d/m/Y', strtotime($client['date_premier_contact'])) : 'N/A'; ?></span>
-                            <span class="stat-label">Premier contact</span>
+                        <div class="metric-item">
+                            <div class="metric-value"><?php echo number_format($client['ca_total'], 0, ',', ' '); ?></div>
+                            <div class="metric-label">CA (FCFA)</div>
                         </div>
                     </div>
                     
-                    <div class="client-actions">
-                        <button class="btn btn-sm btn-primary" onclick="viewClient(<?php echo $client['id']; ?>)">
-                            <i class="fas fa-eye"></i> Voir
-                        </button>
-                        <button class="btn btn-sm btn-secondary" onclick="editClient(<?php echo $client['id']; ?>)">
-                            <i class="fas fa-edit"></i> Modifier
-                        </button>
-                        <button class="btn btn-sm btn-info" onclick="contactClient('<?php echo htmlspecialchars($client['email']); ?>')">
-                            <i class="fas fa-envelope"></i> Contact
-                        </button>
+                    <div class="client-footer">
+                        <div class="client-date">
+                            <i class="fas fa-calendar"></i>
+                            Client depuis <?php echo date('d/m/Y', strtotime($client['date_premier_contact'])); ?>
+                        </div>
+                        <div class="client-actions">
+                            <button class="btn btn-sm btn-outline" onclick="viewClient(<?php echo $client['id']; ?>)" title="Voir détails">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="editClient(<?php echo $client['id']; ?>)" title="Modifier">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="contactClient('<?php echo htmlspecialchars($client['email']); ?>')" title="Contacter">
+                                <i class="fas fa-envelope"></i>
+                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline dropdown-toggle" onclick="toggleDropdown(<?php echo $client['id']; ?>)">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div class="dropdown-menu" id="dropdown-<?php echo $client['id']; ?>">
+                                    <a onclick="createDevis(<?php echo $client['id']; ?>)">
+                                        <i class="fas fa-file-invoice"></i>
+                                        Créer un devis
+                                    </a>
+                                    <a onclick="viewHistory(<?php echo $client['id']; ?>)">
+                                        <i class="fas fa-history"></i>
+                                        Historique
+                                    </a>
+                                    <a onclick="exportClient(<?php echo $client['id']; ?>)">
+                                        <i class="fas fa-download"></i>
+                                        Exporter
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a onclick="deleteClient(<?php echo $client['id']; ?>)" class="text-danger">
+                                        <i class="fas fa-trash"></i>
+                                        Supprimer
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             <?php endwhile; ?>
@@ -532,5 +586,444 @@ window.onclick = function(event) {
 
 
 <style>
+/* Styles spécifiques aux clients */
+.clients-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: var(--admin-space-xl);
+    margin-bottom: var(--admin-space-2xl);
+}
 
+.client-card {
+    background: var(--admin-card-bg);
+    border-radius: var(--admin-radius-xl);
+    box-shadow: var(--admin-shadow-sm);
+    overflow: hidden;
+    transition: var(--admin-transition);
+    border: 1px solid var(--admin-border-light);
+}
+
+.client-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--admin-shadow-md);
+}
+
+.client-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--admin-space-md);
+    padding: var(--admin-space-xl);
+    border-bottom: 1px solid var(--admin-border-light);
+}
+
+.client-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.client-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-fallback {
+    width: 100%;
+    height: 100%;
+    background: var(--admin-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.client-info {
+    flex: 1;
+}
+
+.client-info h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--admin-text-primary);
+    margin-bottom: var(--admin-space-xs);
+}
+
+.client-email {
+    font-size: 0.875rem;
+    color: var(--admin-text-secondary);
+    margin-bottom: var(--admin-space-xs);
+}
+
+.client-company {
+    font-size: 0.875rem;
+    color: var(--admin-text-muted);
+    font-style: italic;
+}
+
+.client-status {
+    position: relative;
+}
+
+.status-dropdown {
+    position: relative;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-xs);
+    padding: 0.5rem 1rem;
+    border-radius: var(--admin-radius-md);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--admin-transition);
+    border: none;
+    background: var(--admin-border-light);
+    color: var(--admin-text-secondary);
+}
+
+.status-badge.prospect {
+    background: rgba(243, 156, 18, 0.1);
+    color: var(--admin-warning);
+}
+
+.status-badge.client {
+    background: rgba(39, 174, 96, 0.1);
+    color: var(--admin-success);
+}
+
+.status-badge.client_vip {
+    background: rgba(155, 89, 182, 0.1);
+    color: #9b59b6;
+}
+
+.status-badge.inactif {
+    background: rgba(108, 117, 125, 0.1);
+    color: var(--admin-text-secondary);
+}
+
+.status-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    box-shadow: var(--admin-shadow-md);
+    z-index: 1000;
+    min-width: 150px;
+}
+
+.status-menu a {
+    display: block;
+    padding: var(--admin-space-sm) var(--admin-space-md);
+    color: var(--admin-text-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--admin-transition);
+}
+
+.status-menu a:hover {
+    background: var(--admin-border-light);
+}
+
+.client-details {
+    padding: var(--admin-space-lg) var(--admin-space-xl);
+    border-bottom: 1px solid var(--admin-border-light);
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-sm);
+    margin-bottom: var(--admin-space-md);
+    font-size: 0.875rem;
+    color: var(--admin-text-secondary);
+}
+
+.detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.detail-item i {
+    width: 20px;
+    text-align: center;
+    color: var(--admin-text-muted);
+}
+
+.detail-action {
+    margin-left: auto;
+    color: var(--admin-primary);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: var(--admin-transition);
+}
+
+.detail-action:hover {
+    opacity: 1;
+}
+
+.client-metrics {
+    display: flex;
+    padding: var(--admin-space-lg) var(--admin-space-xl);
+    border-bottom: 1px solid var(--admin-border-light);
+}
+
+.metric-item {
+    flex: 1;
+    text-align: center;
+}
+
+.metric-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--admin-text-primary);
+    margin-bottom: var(--admin-space-xs);
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: var(--admin-text-secondary);
+}
+
+.client-footer {
+    padding: var(--admin-space-lg) var(--admin-space-xl);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.client-date {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-sm);
+    font-size: 0.75rem;
+    color: var(--admin-text-muted);
+}
+
+.client-actions {
+    display: flex;
+    gap: var(--admin-space-sm);
+    align-items: center;
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    box-shadow: var(--admin-shadow-md);
+    z-index: 1000;
+    min-width: 180px;
+}
+
+.dropdown-menu a {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-sm);
+    padding: var(--admin-space-sm) var(--admin-space-md);
+    color: var(--admin-text-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--admin-transition);
+}
+
+.dropdown-menu a:hover {
+    background: var(--admin-border-light);
+}
+
+.dropdown-menu a.text-danger {
+    color: var(--admin-danger);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--admin-border-light);
+    margin: var(--admin-space-xs) 0;
+}
+
+/* Modal détails client */
+.client-details-full {
+    max-width: 100%;
+}
+
+.client-overview {
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-xl);
+    margin-bottom: var(--admin-space-2xl);
+    padding: var(--admin-space-xl);
+    background: var(--admin-bg-light);
+    border-radius: var(--admin-radius-lg);
+}
+
+.client-avatar-large {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.client-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-fallback-large {
+    width: 100%;
+    height: 100%;
+    background: var(--admin-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 2.5rem;
+}
+
+.client-info-large h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--admin-text-primary);
+    margin-bottom: var(--admin-space-sm);
+}
+
+.client-status-large {
+    margin-top: var(--admin-space-md);
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--admin-space-xl);
+    margin-bottom: var(--admin-space-2xl);
+}
+
+.detail-section {
+    background: var(--admin-bg-light);
+    padding: var(--admin-space-xl);
+    border-radius: var(--admin-radius-lg);
+}
+
+.detail-section h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--admin-text-primary);
+    margin-bottom: var(--admin-space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--admin-space-sm);
+}
+
+.detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--admin-space-md);
+}
+
+.client-stats-large {
+    display: flex;
+    gap: var(--admin-space-xl);
+    margin-bottom: var(--admin-space-2xl);
+    padding: var(--admin-space-xl);
+    background: var(--admin-bg-light);
+    border-radius: var(--admin-radius-lg);
+}
+
+.client-stats-large .stat-item {
+    flex: 1;
+    text-align: center;
+}
+
+.client-stats-large .stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--admin-primary);
+    margin-bottom: var(--admin-space-sm);
+}
+
+.client-stats-large .stat-label {
+    font-size: 1rem;
+    color: var(--admin-text-secondary);
+}
+
+.notes-content {
+    background: var(--admin-card-bg);
+    padding: var(--admin-space-lg);
+    border-radius: var(--admin-radius-md);
+    border: 1px solid var(--admin-border-light);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--admin-text-secondary);
+}
+
+.client-actions-large {
+    display: flex;
+    gap: var(--admin-space-md);
+    justify-content: center;
+    margin-top: var(--admin-space-xl);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .clients-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .client-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--admin-space-md);
+    }
+    
+    .client-metrics {
+        flex-direction: column;
+        gap: var(--admin-space-lg);
+    }
+    
+    .client-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--admin-space-md);
+    }
+    
+    .client-overview {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .client-stats-large {
+        flex-direction: column;
+        gap: var(--admin-space-lg);
+    }
+    
+    .client-actions-large {
+        flex-direction: column;
+    }
+}
 </style>

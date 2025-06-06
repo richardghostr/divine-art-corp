@@ -775,4 +775,3 @@ require_once 'sidebar.php';
     });
 </script>
 
-
