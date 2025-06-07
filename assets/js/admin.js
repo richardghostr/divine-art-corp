@@ -1254,3 +1254,315 @@ function closeSidebar() {
     document.body.style.overflow = ""
   }
 }
+/**
+ * DIVINE ART CORPORATION - GESTION DES MODALES ADMIN
+ * Script centralisé pour la gestion des modales dans l'interface d'administration
+ */
+
+// Fonction pour ouvrir une modale
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.classList.add('modal-open');
+    }
+}
+
+// Fonction pour fermer une modale
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// Fonction pour fermer toutes les modales
+function closeAllModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.style.display = 'none';
+    });
+    document.body.classList.remove('modal-open');
+}
+
+// Initialisation des gestionnaires d'événements pour les modales
+document.addEventListener('DOMContentLoaded', function() {
+    // Fermeture des modales par clic sur l'overlay
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+    });
+
+    // Fermeture des modales par la touche Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAllModals();
+        }
+    });
+
+    // Gestion des boutons d'ouverture de modales
+    document.querySelectorAll('[data-modal]').forEach(button => {
+        button.addEventListener('click', function() {
+            const modalId = this.getAttribute('data-modal');
+            openModal(modalId);
+        });
+    });
+
+    // Gestion des boutons de fermeture
+    document.querySelectorAll('.modal .close, .modal .modal-close, .modal .btn-close').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            }
+        });
+    });
+});
+
+// Fonctions spécifiques pour les différentes pages
+// Dashboard
+function showCreateProjectModal() {
+    openModal('new-project-modal');
+}
+
+// Projets
+function showProjectModal() {
+    openModal('createProjectModal');
+}
+
+function closeCreateProjectModal() {
+    closeModal('createProjectModal');
+}
+
+function viewProject(id) {
+    fetch(`../api/get_project_details.php?id=${id}`)
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('projectModalBody').innerHTML = data;
+            openModal('projectModal');
+        });
+}
+
+function manageTasks(id) {
+    fetch(`../api/get_project_tasks.php?id=${id}`)
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('tasksModalBody').innerHTML = data;
+            openModal('tasksModal');
+        });
+}
+
+// Clients
+function showAddClientModal() {
+    document.getElementById('clientModalTitle').textContent = 'Nouveau Client';
+    document.getElementById('clientAction').value = 'add_client';
+    document.getElementById('clientForm').reset();
+    openModal('clientModal');
+}
+
+function editClient(id) {
+    fetch(`../api/get_client_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('clientModalTitle').textContent = 'Modifier Client';
+            document.getElementById('clientAction').value = 'update_client';
+            document.getElementById('clientId').value = data.id;
+            
+            // Remplir le formulaire
+            Object.keys(data).forEach(key => {
+                const field = document.getElementById(key);
+                if (field) {
+                    field.value = data[key] || '';
+                }
+            });
+            
+            openModal('clientModal');
+        });
+}
+
+// Devis
+function viewDevis(id) {
+    fetch(`ajax/get_devis_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('devisModalTitle').textContent = `Devis ${data.devis.numero_devis}`;
+                
+                let fichiers = '';
+                if (data.devis.fichiers_joints) {
+                    const fichiersList = JSON.parse(data.devis.fichiers_joints);
+                    fichiers = `
+                        <div class="detail-section">
+                            <h4>Fichiers joints</h4>
+                            <div class="files-list">
+                                ${fichiersList.map(file => `
+                                    <div class="file-item">
+                                        <i class="fas fa-file"></i>
+                                        <span>${file.nom}</span>
+                                        <a href="${file.chemin}" target="_blank" class="btn btn-sm btn-outline">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('devisModalBody').innerHTML = `
+                    <div class="devis-details">
+                        <div class="detail-section">
+                            <h4>Informations client</h4>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">Nom</span>
+                                    <span class="detail-value">${data.devis.nom}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Email</span>
+                                    <span class="detail-value">${data.devis.email}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Téléphone</span>
+                                    <span class="detail-value">${data.devis.telephone}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Entreprise</span>
+                                    <span class="detail-value">${data.devis.entreprise || 'Non spécifié'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h4>Détails de la demande</h4>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">Service</span>
+                                    <span class="detail-value">${data.devis.service}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Budget</span>
+                                    <span class="detail-value">${data.devis.budget || 'Non spécifié'}</span>
+                                </div>
+                                <div class="detail-item full-width">
+                                    <span class="detail-label">Description</span>
+                                    <div class="detail-text">${data.devis.description.replace(/\n/g, '<br>')}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${fichiers}
+                    </div>
+                `;
+                
+                openModal('devisModal');
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+function updateStatus(id) {
+    fetch(`ajax/get_devis_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('status_devis_id').value = id;
+                document.getElementById('statut').value = data.devis.statut;
+                document.getElementById('priorite').value = data.devis.priorite;
+                document.getElementById('notes_admin').value = data.devis.notes_admin || '';
+                
+                openModal('statusModal');
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+function updateMontant(id) {
+    fetch(`ajax/get_devis_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('montant_devis_id').value = id;
+                document.getElementById('montant_estime').value = data.devis.montant_estime || '';
+                document.getElementById('montant_final').value = data.devis.montant_final || '';
+                document.getElementById('date_debut').value = data.devis.date_debut || '';
+                document.getElementById('date_fin_prevue').value = data.devis.date_fin_prevue || '';
+                
+                openModal('montantModal');
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+function createProject(id) {
+    fetch(`ajax/get_devis_details.php?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('project_devis_id').value = id;
+                document.getElementById('nom_projet').value = `Projet - ${data.devis.service} - ${data.devis.nom}`;
+                document.getElementById('description_projet').value = data.devis.description || '';
+                document.getElementById('budget_alloue').value = data.devis.montant_final || data.devis.montant_estime || '';
+                
+                openModal('projectModal');
+            }
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+// Marketing
+function showCampaignModal() {
+    openModal('campaignModal');
+}
+
+function closeCampaignModal() {
+    closeModal('campaignModal');
+}
+
+function createCampaign(type) {
+    document.getElementById('campaign_type').value = type;
+    showCampaignModal();
+}
+
+// Multimédia
+function showVideoModal() {
+    openModal('videoModal');
+}
+
+function closeVideoModal() {
+    closeModal('videoModal');
+}
+
+function createVideoProject(type) {
+    const typeMap = {
+        'promotional': 'video-promotionnelle',
+        'animation': 'animation-2d-3d',
+        'editing': 'montage-video',
+        'audio': 'production-audio'
+    };
+    
+    const videoTypeElement = document.getElementById('videoType');
+    if (videoTypeElement) {
+        videoTypeElement.value = typeMap[type] || type;
+        showVideoModal();
+    }
+}
+
+// Graphique
+function createVideo(type) {
+    const videoTypeElement = document.getElementById('video_type');
+    if (videoTypeElement) {
+        videoTypeElement.value = type;
+        showVideoModal();
+    }
+}
+
+// Declaration of loadClients function
+function loadClients() {
+    // Implementation of loadClients function
+    console.log('Loading clients...');
+}

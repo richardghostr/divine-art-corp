@@ -242,8 +242,8 @@ include 'header.php';
         </div>
 
         <!-- Filtres -->
-        <div class="filters-section">
-            <div class="filters-tabs">
+        <div class="filters-bar">
+            <div class="filter-tabs">
                 <button class="filter-tab <?php echo !$filter_status ? 'active' : ''; ?>" 
                         onclick="filterVideos('')">Tous</button>
                 <button class="filter-tab <?php echo $filter_status === 'nouveau' ? 'active' : ''; ?>" 
@@ -263,7 +263,7 @@ include 'header.php';
                     <i class="fas fa-search"></i>
                     <input type="text" placeholder="Rechercher un projet..." 
                            value="<?php echo htmlspecialchars($search); ?>" 
-                           onkeyup="searchVideos(this.value)">
+                           onkeyup="searchVideos(this.value)" >
                 </div>
                 <select onchange="filterByType(this.value)">
                     <option value="">Tous les types</option>
@@ -783,4 +783,34 @@ document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
         grid-template-columns: 1fr;
     }
 }
+
+.filters-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: var(--admin-space-lg);
+    gap: var(--admin-space-md);
+    width: 100%;
+}
+.search-box {
+    position: relative;
+    margin-right: var(--admin-space-lg);
+}
+.search-box i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--admin-text-secondary);
+}
+.search-box input {
+    padding-left: 30px;
+    width: 250px;
+    height: 40px;
+    border-radius: var(--admin-radius-md);
+    border: 1px solid var(--admin-border-light);
+    font-size: 0.875rem;
+}
 </style>
+
+

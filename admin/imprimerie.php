@@ -272,7 +272,7 @@ require_once 'sidebar.php';
             </div>
         </div>
     </div>
-
+<br>
     <!-- Filtres -->
     <div class="filters-bar">
         <div class="filter-tabs">

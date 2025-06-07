@@ -188,7 +188,7 @@ include 'header.php';
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" onclick="showCreateProjectModal()">
-                    <i class="fas fa-plus"></i> Nouveau Projet
+                    <i class="fas fa-plus"></i><a href="create_project.php" style="text-decoration: none;color:#fff">Nouveau Projet</a> 
                 </button>
             </div>
         </div>
@@ -417,7 +417,55 @@ include 'header.php';
         </div>
     </div>
 </div>
-<!-- Ajoutez ce code juste après la balise </main> et avant les autres modals -->
+
+<script>
+    // Fonction pour afficher le modal de projet
+    function viewProject(projectId) {
+        const modal = document.getElementById('projectModal');
+        const modalBody = document.getElementById('projectModalBody');
+        
+        fetch(`../api/get_project_details.php?id=${projectId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    modalBody.innerHTML = `
+                        <h3>${data.project.nom}</h3>
+                        <p><strong>Client:</strong> ${data.project.client_nom} (${data.project.entreprise})</p>
+                        <p><strong>Statut:</strong> ${data.project.statut}</p>
+                        <p><strong>Progression:</strong> ${data.project.progression}%</p>
+                        <p><strong>Responsable:</strong> ${data.project.admin_nom}</p>
+                        <p><strong>Budget Alloué:</strong> ${data.project.budget_alloue ? data.project.budget_alloue + ' FCFA' : 'Non défini'}</p>
+                        <p><strong>Date de Début:</strong> ${data.project.date_debut ? new Date(data.project.date_debut).toLocaleDateString() : 'Non défini'}</p>
+                        <p><strong>Date de Fin Prévue:</strong> ${data.project.date_fin_prevue ? new Date(data.project.date_fin_prevue).toLocaleDateString() : 'Non défini'}</p>
+                        <h4>Description</h4>
+                        <p>${data.project.description || 'Aucune description fournie.'}</p>
+                    `;
+                    modal.style.display = 'block';
+                } else {
+                    alert('Erreur: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue lors du chargement des détails du projet.');
+            });
+    }
+
+    // Fonction pour fermer le modal
+    document.querySelectorAll('.modal .close').forEach(closeBtn => {
+        closeBtn.onclick = function() {
+            this.closest('.modal').style.display = 'none';
+        }
+    });
+
+    // Gestion de la fermeture des modals en cliquant à l'extérieur
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    };
+    </script>
+<!-- Modal pour créer un nouveau projet -->
 <div id="createProjectModal" class="modal">
     <div class="modal-content large">
         <div class="modal-header">
@@ -427,36 +475,36 @@ include 'header.php';
         <div class="modal-body">
             <form id="createProjectForm" method="POST" action="../api/create_project.php">
                 <div class="form-group">
-                    <label for="nom">Nom du projet *</label>
-                    <input type="text" id="nom" name="nom" required>
+                    <label for="project_name">Nom du projet *</label>
+                    <input type="text" id="project_name" name="project_name" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="3"></textarea>
+                    <label for="project_description">Description</label>
+                    <textarea id="project_description" name="project_description" rows="3"></textarea>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="date_debut">Date de début *</label>
-                        <input type="date" id="date_debut" name="date_debut" required>
+                        <label for="start_date">Date de début *</label>
+                        <input type="date" id="start_date" name="start_date" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="date_fin_prevue">Date de fin prévue</label>
-                        <input type="date" id="date_fin_prevue" name="date_fin_prevue">
+                        <label for="end_date">Date de fin prévue</label>
+                        <input type="date" id="end_date" name="end_date">
                     </div>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="budget_alloue">Budget alloué (FCFA)</label>
-                        <input type="number" id="budget_alloue" name="budget_alloue" min="0">
+                        <label for="budget">Budget alloué (FCFA)</label>
+                        <input type="number" id="budget" name="budget" min="0">
                     </div>
                     
                     <div class="form-group">
-                        <label for="admin_responsable">Responsable *</label>
-                        <select id="admin_responsable" name="admin_responsable" required>
+                        <label for="project_manager">Responsable *</label>
+                        <select id="project_manager" name="project_manager" required>
                             <option value="">Sélectionnez un responsable</option>
                             <?php foreach ($admins as $admin): ?>
                                 <option value="<?php echo $admin['id']; ?>">
@@ -468,8 +516,8 @@ include 'header.php';
                 </div>
                 
                 <div class="form-group">
-                    <label for="client_id">Client associé</label>
-                    <select id="client_id" name="client_id">
+                    <label for="client">Client associé</label>
+                    <select id="client" name="client">
                         <option value="">Sélectionnez un client</option>
                         <?php
                         $clients_query = "SELECT id, nom, entreprise FROM clients ORDER BY nom";
@@ -483,8 +531,8 @@ include 'header.php';
                 </div>
                 
                 <div class="form-group">
-                    <label for="devis_id">Devis associé</label>
-                    <select id="devis_id" name="devis_id">
+                    <label for="quote">Devis associé</label>
+                    <select id="quote" name="quote">
                         <option value="">Sélectionnez un devis</option>
                         <?php
                         $devis_query = "SELECT id, numero_devis, nom FROM devis ORDER BY date_creation DESC";
@@ -604,5 +652,50 @@ function showCreateProjectModal() {
             event.target.style.display = 'none';
         }
     }
+
+
+    // Fonction pour afficher le modal
+function showCreateProjectModal() {
+    // Pré-remplir la date de début avec la date du jour
+    document.getElementById('start_date').valueAsDate = new Date();
+    document.getElementById('createProjectModal').style.display = 'block';
+}
+
+// Fonction pour fermer le modal
+function closeCreateProjectModal() {
+    document.getElementById('createProjectModal').style.display = 'none';
+}
+
+// Gestion de la soumission du formulaire
+document.getElementById('createProjectForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Projet créé avec succès!');
+            closeCreateProjectModal();
+            // Recharger la page pour afficher le nouveau projet
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue lors de la création du projet');
+    });
+});
+
+// Ajouter la gestion de fermeture pour ce modal
+document.querySelector('#createProjectModal .close').onclick = function() {
+    closeCreateProjectModal();
+}
 </script>
 

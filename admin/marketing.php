@@ -223,8 +223,8 @@ include 'header.php';
         </div>
 
         <!-- Filtres -->
-        <div class="filters-section">
-            <div class="filters-tabs">
+        <div class="filters-bar">
+            <div class="filter-tabs">
                 <button class="filter-tab <?php echo !$filter_status ? 'active' : ''; ?>" 
                         onclick="filterCampaigns('')">Toutes</button>
                 <button class="filter-tab <?php echo $filter_status === 'planifiee' ? 'active' : ''; ?>" 
@@ -721,5 +721,34 @@ document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
     .services-grid {
         grid-template-columns: 1fr;
     }
+}
+
+
+.filters-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: var(--admin-space-md);
+    
+}
+.search-box {
+    position: relative;
+    margin-right: var(--admin-space-lg);
+}
+.search-box i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--admin-text-secondary);
+}
+.search-box input {
+    padding-left: 30px;
+    width: 250px;
+    height: 40px;
+    border-radius: var(--admin-radius-md);
+    border: 1px solid var(--admin-border-light);
+    font-size: 0.875rem;
 }
 </style>

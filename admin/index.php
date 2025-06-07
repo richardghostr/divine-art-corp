@@ -196,7 +196,7 @@ require_once 'sidebar.php';
         </div>
         <div class="welcome-actions">
             <button class="btn btn-primary" onclick="openModal('new-project-modal')">
-                <i class="fas fa-plus"></i> Nouveau Projet
+                <i class="fas fa-plus"></i><a href="create_project.php" style="text-decoration: none;color:#fff">Nouveau Projet</a> 
             </button>
         </div>
     </div>
