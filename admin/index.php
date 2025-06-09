@@ -773,5 +773,35 @@ require_once 'sidebar.php';
             document.getElementById('project-devis').value = devisId;
         }
     });
+
+    // Gestion universelle des modales (formulaires)
+document.addEventListener('DOMContentLoaded', function () {
+    // Ouvre une modale
+    document.querySelectorAll('[data-open-modal]').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const modalId = this.getAttribute('data-open-modal');
+            const modal = document.getElementById(modalId);
+            if (modal) modal.style.display = 'block';
+        });
+    });
+
+    // Ferme une modale
+    document.querySelectorAll('[data-close-modal]').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const modalId = this.getAttribute('data-close-modal');
+            const modal = document.getElementById(modalId);
+            if (modal) modal.style.display = 'none';
+        });
+    });
+
+    // Ferme la modale si on clique en dehors du contenu
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+    });
+});
 </script>
+
+
 

@@ -240,12 +240,11 @@ body {
 
 /* Hero Section */
 .hero {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: var(--white);
     padding: 120px 0 80px;
     position: relative;
     overflow: hidden;
-    height: 40vh;margin-top: -5px;
+    margin-top: -5px;
     
 }
 

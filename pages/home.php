@@ -1,7 +1,7 @@
 <!-- Hero Section -->
 <!-- Hero Section with Slider -->
-<section class="hero">
-    <div class="hero-slider">
+<section class="hero" ><br><br>
+    <div class="hero-slider" style="height:100% ;">
         <!-- Slide 1 -->
         <div class="slide active" style="background-image: url('assets/images/slide1.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
@@ -16,9 +16,7 @@
         <div class="slide" style="background-image: url('assets/images/slide6.jpg');background-size: cover; background-position: center;">
             <div class="slide-overlay"></div>
         </div>
-    </div>
-    
-    <div class="hero-content" >
+           <div class="hero-content" >
         <div class="container">
             <div class="hero-text">
                 <h1 class="hero-title">
@@ -39,9 +37,8 @@
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Slider Controls -->
+    </div><br><br><br>
+   <!-- Slider Controls -->
     <div class="slider-controls">
         <button class="slider-prev"><i class="fas fa-chevron-left"></i></button>
         <div class="slider-dots">
@@ -51,6 +48,10 @@
         </div>
         <button class="slider-next"><i class="fas fa-chevron-right"></i></button>
     </div>
+    </div>
+    
+   
+   
 </section>
 <!-- Services Section -->
 <section class="services" id="services">
@@ -316,3 +317,55 @@
     initSlider();
 });
 </script>
+
+<style>/* ...existing code... */
+
+/* Hero section: occupe toute la hauteur de la fenêtre */
+.hero {
+    min-height: 80vh;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0;
+
+}
+
+/* Hero slider prend toute la hauteur de la section hero */
+.hero-slider {
+    height: 100%;
+    min-height: 80vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: stretch;
+}
+
+/* Slides prennent toute la place */
+.slide {
+    height: 100vh;
+    min-height: 100vh;
+    width: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    opacity: 0;
+    transition: opacity 0.5s;
+    z-index: 1;
+}
+.slide.active {
+    opacity: 1;
+    z-index: 2;
+}
+
+/* Responsive: pour petits écrans, ajuste la hauteur si besoin */
+@media (max-width: 768px) {
+    .hero, .hero-slider, .slide {
+        min-height: 60vh;
+        height: 60vh;
+    }
+    .hero-content {
+        padding-top: 30px;
+        padding-bottom: 30px;
+    }
+}
+
+/* ...existing code... */</style>
